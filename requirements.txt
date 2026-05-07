@@ -1,0 +1,5 @@
+requests
+pydantic
+langgraph
+openai
+jsonschema
