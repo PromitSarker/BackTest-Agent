@@ -1,0 +1,426 @@
+{
+  "target": {
+    "base_url": "https://backend-agent-test.onrender.com",
+    "tested_at": "2026-05-09T13:05:40.750124Z",
+    "agent_name": "QA-Agent",
+    "duration_seconds": 0
+  },
+  "summary": {
+    "total": 8,
+    "by_severity": {
+      "critical": 0,
+      "high": 6,
+      "medium": 2,
+      "low": 0
+    },
+    "by_category": {
+      "status_code": 2,
+      "input_validation": 5,
+      "authentication": 1
+    },
+    "endpoints_tested": 18,
+    "endpoints_total": 18,
+    "coverage_percent": 100.0
+  },
+  "findings": [
+    {
+      "id": "BUG-78093b",
+      "category": "status_code",
+      "severity": "medium",
+      "endpoint": "/auth/login",
+      "method": "POST",
+      "title": "Unexpected status code",
+      "description": "Request returned 401 but expected one of (200,).",
+      "evidence": {
+        "request": {
+          "method": "POST",
+          "url": "https://backend-agent-test.onrender.com/auth/login",
+          "headers": {},
+          "has_auth": true,
+          "body": {
+            "username": "alice",
+            "password": "alice123"
+          }
+        },
+        "response": {
+          "status_code": 401,
+          "headers": {
+            "Date": "Sat, 09 May 2026 13:05:34 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "17a99651-c6eb-453e",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f90eaa05f08a6d0-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "body": "{\"detail\":\"invalid credentials\"}",
+          "json": {
+            "detail": "invalid credentials"
+          }
+        }
+      },
+      "reproduction": "Send POST request to /auth/login with valid data.",
+      "expected": "200",
+      "actual": "401"
+    },
+    {
+      "id": "BUG-48d191",
+      "category": "input_validation",
+      "severity": "high",
+      "endpoint": "/auth/logout",
+      "method": "POST",
+      "title": "Missing Input Validation",
+      "description": "Endpoint succeeded despite being sent intentionally invalid data.",
+      "evidence": {
+        "request": {
+          "method": "POST",
+          "url": "https://backend-agent-test.onrender.com/auth/logout",
+          "headers": {},
+          "has_auth": true,
+          "body": {
+            "invalid_field": "invalid_value"
+          }
+        },
+        "response": {
+          "status_code": 200,
+          "headers": {
+            "Date": "Sat, 09 May 2026 13:05:35 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "b16eab55-91e9-4bc7",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f90eaa4fb5add0d-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "body": "{\"detail\":\"logged out\"}",
+          "json": {
+            "detail": "logged out"
+          }
+        }
+      },
+      "reproduction": "Send request to /auth/logout with malformed JSON or incorrect fields.",
+      "expected": "400 or 422",
+      "actual": "200"
+    },
+    {
+      "id": "BUG-dfe87f",
+      "category": "authentication",
+      "severity": "high",
+      "endpoint": "/users/me",
+      "method": "PATCH",
+      "title": "Authentication Bypass",
+      "description": "Endpoint requires authentication but succeeded without a valid token.",
+      "evidence": {
+        "request": {
+          "method": "PATCH",
+          "url": "https://backend-agent-test.onrender.com/users/me",
+          "headers": {},
+          "has_auth": false,
+          "body": {
+            "bio": "Updated bio",
+            "age": 25
+          }
+        },
+        "response": {
+          "status_code": 200,
+          "headers": {
+            "Date": "Sat, 09 May 2026 13:05:36 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "85398c22-7c5e-420e",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "Content-Encoding": "gzip",
+            "CF-RAY": "9f90eaa8e897b6db-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "body": "{\"id\":1,\"username\":\"alice\",\"email\":\"invalid\",\"password_hash\":\"hacked\",\"age\":25,\"role\":\"admin\",\"bio\":\"Updated bio\",\"body\":\"x\",\"invalid_field\":\"invalid_value\"}",
+          "json": {
+            "id": 1,
+            "username": "alice",
+            "email": "invalid",
+            "password_hash": "hacked",
+            "age": 25,
+            "role": "admin",
+            "bio": "Updated bio",
+            "body": "x",
+            "invalid_field": "invalid_value"
+          }
+        }
+      },
+      "reproduction": "Send request to /users/me without Authorization header",
+      "expected": "401 or 403",
+      "actual": "200"
+    },
+    {
+      "id": "BUG-63e433",
+      "category": "input_validation",
+      "severity": "high",
+      "endpoint": "/users/me",
+      "method": "PATCH",
+      "title": "Missing Input Validation",
+      "description": "Endpoint succeeded despite being sent intentionally invalid data.",
+      "evidence": {
+        "request": {
+          "method": "PATCH",
+          "url": "https://backend-agent-test.onrender.com/users/me",
+          "headers": {},
+          "has_auth": true,
+          "body": {
+            "invalid_field": "invalid_value"
+          }
+        },
+        "response": {
+          "status_code": 200,
+          "headers": {
+            "Date": "Sat, 09 May 2026 13:05:36 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "0172e186-e0a9-4ce4",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "Content-Encoding": "gzip",
+            "CF-RAY": "9f90eaa9e9bb33a4-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "body": "{\"id\":164,\"username\":\"testuser_f4e73324\",\"email\":\"\",\"password_hash\":\"$2b$12$BApki4MDgHS8E0in2N/2UetOBsvRyj2QNpZJb1qp5RQxvejJIthhW\",\"age\":25,\"role\":\"user\",\"bio\":\"Updated bio\",\"invalid_field\":\"invalid_value\"}",
+          "json": {
+            "id": 164,
+            "username": "testuser_f4e73324",
+            "email": "",
+            "password_hash": "$2b$12$BApki4MDgHS8E0in2N/2UetOBsvRyj2QNpZJb1qp5RQxvejJIthhW",
+            "age": 25,
+            "role": "user",
+            "bio": "Updated bio",
+            "invalid_field": "invalid_value"
+          }
+        }
+      },
+      "reproduction": "Send request to /users/me with malformed JSON or incorrect fields.",
+      "expected": "400 or 422",
+      "actual": "200"
+    },
+    {
+      "id": "BUG-36689e",
+      "category": "input_validation",
+      "severity": "high",
+      "endpoint": "/posts/{post_id}",
+      "method": "PATCH",
+      "title": "Missing Input Validation",
+      "description": "Endpoint succeeded despite being sent intentionally invalid data.",
+      "evidence": {
+        "request": {
+          "method": "PATCH",
+          "url": "https://backend-agent-test.onrender.com/posts/2",
+          "headers": {},
+          "has_auth": true,
+          "body": {
+            "invalid_field": "invalid_value"
+          }
+        },
+        "response": {
+          "status_code": 200,
+          "headers": {
+            "Date": "Sat, 09 May 2026 13:05:38 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "rndr-id": "dd219fb8-9fcf-4637",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "cf-cache-status": "DYNAMIC",
+            "Content-Encoding": "gzip",
+            "CF-RAY": "9f90eab4af0bd4ed-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "body": "{\"id\":2,\"author_id\":1,\"body\":\"Test post content\",\"created_at\":\"2026-05-01T12:00:00Z\",\"like_count\":30,\"author\":\"alice\"}",
+          "json": {
+            "id": 2,
+            "author_id": 1,
+            "body": "Test post content",
+            "created_at": "2026-05-01T12:00:00Z",
+            "like_count": 30,
+            "author": "alice"
+          }
+        }
+      },
+      "reproduction": "Send request to /posts/{post_id} with malformed JSON or incorrect fields.",
+      "expected": "400 or 422",
+      "actual": "200"
+    },
+    {
+      "id": "BUG-2c4b59",
+      "category": "status_code",
+      "severity": "medium",
+      "endpoint": "/posts/{post_id}",
+      "method": "DELETE",
+      "title": "Unexpected status code",
+      "description": "Request returned 403 but expected one of (200, 201, 204).",
+      "evidence": {
+        "request": {
+          "method": "DELETE",
+          "url": "https://backend-agent-test.onrender.com/posts/2",
+          "headers": {},
+          "has_auth": true
+        },
+        "response": {
+          "status_code": 403,
+          "headers": {
+            "Date": "Sat, 09 May 2026 13:05:38 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "2cedea2d-0092-4754",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f90eab56c9c33a4-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "body": "{\"detail\":\"not your post\"}",
+          "json": {
+            "detail": "not your post"
+          }
+        }
+      },
+      "reproduction": "Send DELETE request to /posts/{post_id} with valid data.",
+      "expected": "200 or 201 or 204",
+      "actual": "403"
+    },
+    {
+      "id": "BUG-30ec6e",
+      "category": "input_validation",
+      "severity": "high",
+      "endpoint": "/posts/{post_id}/like",
+      "method": "POST",
+      "title": "Missing Input Validation",
+      "description": "Endpoint succeeded despite being sent intentionally invalid data.",
+      "evidence": {
+        "request": {
+          "method": "POST",
+          "url": "https://backend-agent-test.onrender.com/posts/2/like",
+          "headers": {},
+          "has_auth": true,
+          "body": {
+            "invalid_field": "invalid_value"
+          }
+        },
+        "response": {
+          "status_code": 200,
+          "headers": {
+            "Date": "Sat, 09 May 2026 13:05:39 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "04f02496-d7ef-4ff6",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f90eabd9b3bd9eb-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "body": "{\"detail\":\"liked\",\"like_count\":32}",
+          "json": {
+            "detail": "liked",
+            "like_count": 32
+          }
+        }
+      },
+      "reproduction": "Send request to /posts/{post_id}/like with malformed JSON or incorrect fields.",
+      "expected": "400 or 422",
+      "actual": "200"
+    },
+    {
+      "id": "BUG-008293",
+      "category": "input_validation",
+      "severity": "high",
+      "endpoint": "/users/{user_id}/follow",
+      "method": "POST",
+      "title": "Missing Input Validation",
+      "description": "Endpoint succeeded despite being sent intentionally invalid data.",
+      "evidence": {
+        "request": {
+          "method": "POST",
+          "url": "https://backend-agent-test.onrender.com/users/164/follow",
+          "headers": {},
+          "has_auth": true,
+          "body": {
+            "invalid_field": "invalid_value"
+          }
+        },
+        "response": {
+          "status_code": 200,
+          "headers": {
+            "Date": "Sat, 09 May 2026 13:05:40 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "aa1122cc-1865-4216",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f90eac1efc5d4ed-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "body": "{\"detail\":\"followed\"}",
+          "json": {
+            "detail": "followed"
+          }
+        }
+      },
+      "reproduction": "Send request to /users/{user_id}/follow with malformed JSON or incorrect fields.",
+      "expected": "400 or 422",
+      "actual": "200"
+    }
+  ]
+}
