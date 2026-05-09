@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 import os
 
 from agent.graph import build_graph
+from agent.logger import logger
 
 def main():
     # Load environment variables
@@ -20,8 +21,8 @@ def main():
     if not username or not password:
         raise ValueError("USERNAME or PASSWORD missing in .env")
 
-    print("Agent started")
-    print("Running workflow...")
+    logger.info("Agent started")
+    logger.info("Running workflow...")
 
     # Initial state passed into LangGraph
     initial_state = {
@@ -41,9 +42,9 @@ def main():
         with open("report.json", "w", encoding="utf-8") as f:
             import json
             json.dump(report, f, indent=2)
-        print("Workflow completed. Report saved to report.json")
+        logger.info("Workflow completed. Report saved to report.json")
     else:
-        print("Workflow completed, but no report generated.")
+        logger.warning("Workflow completed, but no report generated.")
 
 
 if __name__ == "__main__":
