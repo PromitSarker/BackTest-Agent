@@ -43,7 +43,13 @@ def analyze_node(state: AgentState):
     return {"findings": findings}
 
 def generate_report_node(state: AgentState):
-    report = generate_report(state["findings"], state["base_url"], "report.json")
+    report = generate_report(
+        state["findings"], 
+        state["base_url"], 
+        state["test_results"], 
+        state["endpoints"], 
+        "report.json"
+    )
     return {"report": report}
 
 def build_graph():
