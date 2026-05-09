@@ -7,6 +7,7 @@ def analyze(results: list[dict], endpoints_spec: list[dict] = None) -> list[dict
     for test in results:
         endpoint = test["endpoint"]
         method = test["method"]
+        request = test.get("request", {})
         response = test.get("response", {})
         status = response.get("status_code")
         
@@ -15,8 +16,14 @@ def analyze(results: list[dict], endpoints_spec: list[dict] = None) -> list[dict
         spec = spec_map.get((endpoint, method), {})
         requires_auth = spec.get("requires_auth", False)
 
+        evidence = {
+            "request": request,
+            "response": response
+        }
+
         # Check 1: status_code
         if test_type == "normal" and method == "POST" and status not in (200, 201):
+            expected = "422" if "/auth/login" in endpoint else "200 or 201"
             findings.append(_create_finding(
                 category="status_code",
                 severity="medium",
@@ -24,9 +31,9 @@ def analyze(results: list[dict], endpoints_spec: list[dict] = None) -> list[dict
                 method=method,
                 title="Unexpected POST status code",
                 description="POST request returned an unexpected status code.",
-                evidence=response,
+                evidence=evidence,
                 reproduction=f"Send POST request to {endpoint} with empty JSON body",
-                expected="200 or 201",
+                expected=expected,
                 actual=str(status)
             ))
 
@@ -39,7 +46,7 @@ def analyze(results: list[dict], endpoints_spec: list[dict] = None) -> list[dict
                 method=method,
                 title="Authentication Bypass",
                 description="Endpoint requires auth but succeeded without a token.",
-                evidence=response,
+                evidence=evidence,
                 reproduction=f"Send request to {endpoint} without Authorization header",
                 expected="401 or 403",
                 actual=str(status)
@@ -54,7 +61,7 @@ def analyze(results: list[dict], endpoints_spec: list[dict] = None) -> list[dict
                 method=method,
                 title="Missing Input Validation",
                 description="Endpoint succeeded despite invalid input data.",
-                evidence=response,
+                evidence=evidence,
                 reproduction=f"Send request to {endpoint} with incorrect data types/values",
                 expected="400 or 422",
                 actual=str(status)
