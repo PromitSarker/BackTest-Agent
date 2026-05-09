@@ -1,4 +1,7 @@
+from atexit import register
+
 import requests
+import uuid
 
 
 SUPPORTED_METHODS = {"GET", "POST", "PATCH", "DELETE"}
@@ -24,8 +27,12 @@ def call_api(method: str, url: str, headers: dict = None, json: dict = None) -> 
 
 
 def login(base_url: str, username: str, password: str) -> str:
+    base_url = base_url.rstrip("/")
     url = f"{base_url}/auth/login"
+
     payload = {"username": username, "password": password}
+
+    print("LOGIN URL:", url)
 
     response = call_api("POST", url, json=payload)
 
@@ -35,9 +42,9 @@ def login(base_url: str, username: str, password: str) -> str:
         )
 
     data = response["json"] or {}
-    token = data.get("access_token") or data.get("token")
+    token = data.get("access_token")
 
     if not token:
-        raise RuntimeError("Login succeeded but no access_token found in response")
+        raise RuntimeError("Login succeeded but no access_token found")
 
     return token
