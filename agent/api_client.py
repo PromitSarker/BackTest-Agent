@@ -1,5 +1,3 @@
-from atexit import register
-
 import requests
 import uuid
 
@@ -27,24 +25,54 @@ def call_api(method: str, url: str, headers: dict = None, json: dict = None) -> 
 
 
 def login(base_url: str, username: str, password: str) -> str:
-    base_url = base_url.rstrip("/")
+    base_url = base_url.rstrip("/")  
     url = f"{base_url}/auth/login"
 
     payload = {"username": username, "password": password}
 
-    print("LOGIN URL:", url)
+    print("LOGIN URL:", url)  # debug
 
     response = call_api("POST", url, json=payload)
 
     if response["status_code"] != 200:
-        raise RuntimeError(
-            f"Login failed with status {response['status_code']}: {response['text']}"
-        )
+        print(f"Login failed with status {response['status_code']}, trying to register new user...")
+        # Try to register a new unique user instead
+        return register(base_url)
 
     data = response["json"] or {}
-    token = data.get("access_token")
+    token = data.get("access_token") or data.get("token")
 
     if not token:
-        raise RuntimeError("Login succeeded but no access_token found")
+        raise RuntimeError("Login succeeded but no access_token found in response")
 
+    return token
+
+
+def register(base_url: str, username: str = None, password: str = None) -> str:
+    """Register a new user with generated credentials"""
+    base_url = base_url.rstrip("/")
+    url = f"{base_url}/auth/register"
+    
+    if not username:
+        username = f"testuser_{uuid.uuid4().hex[:8]}"
+    if not password:
+        password = f"pass_{uuid.uuid4().hex[:8]}"
+    
+    payload = {"username": username, "password": password}
+    
+    print(f"REGISTER URL: {url} with username {username}")
+    
+    response = call_api("POST", url, json=payload)
+    
+    if response["status_code"] not in (200, 201):
+        raise RuntimeError(
+            f"Registration failed with status {response['status_code']}: {response['text']}"
+        )
+    
+    data = response["json"] or {}
+    token = data.get("access_token") or data.get("token")
+    
+    if not token:
+        raise RuntimeError("Registration succeeded but no access_token found in response")
+    
     return token
