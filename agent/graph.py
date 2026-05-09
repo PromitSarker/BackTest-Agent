@@ -7,6 +7,7 @@ from agent.api_client import login
 from agent.test_runner import run_tests
 from agent.analyzer import analyze
 from report.generator import generate_report
+from agent.logger import logger
 
 class AgentState(TypedDict):
     base_url: str
@@ -28,9 +29,9 @@ def load_spec_node(state: AgentState):
 def login_node(state: AgentState):
     try:
         token = login(state["base_url"], state["username"], state["password"])
-        print(f"Login successful")
+        logger.info(f"Login successful")
     except Exception as e:
-        print(f"Login/Register failed: {e}")
+        logger.error(f"Login/Register failed: {e}")
         token = None
     return {"token": token}
 

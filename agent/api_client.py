@@ -1,5 +1,6 @@
 import requests
 import uuid
+from agent.logger import logger
 
 
 SUPPORTED_METHODS = {"GET", "POST", "PATCH", "DELETE"}
@@ -30,12 +31,12 @@ def login(base_url: str, username: str, password: str) -> str:
 
     payload = {"username": username, "password": password}
 
-    print("LOGIN URL:", url)  # debug
+    logger.debug(f"LOGIN URL: {url}")
 
     response = call_api("POST", url, json=payload)
 
     if response["status_code"] != 200:
-        print(f"Login failed with status {response['status_code']}, trying to register new user...")
+        logger.info(f"Login failed with status {response['status_code']}, trying to register new user...")
         # Try to register a new unique user instead
         return register(base_url)
 
@@ -60,7 +61,7 @@ def register(base_url: str, username: str = None, password: str = None) -> str:
     
     payload = {"username": username, "password": password}
     
-    print(f"REGISTER URL: {url} with username {username}")
+    logger.debug(f"REGISTER URL: {url} with username {username}")
     
     response = call_api("POST", url, json=payload)
     
