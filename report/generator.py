@@ -13,6 +13,19 @@ REPORT_SCHEMA = {
 }
 
 def generate_report(findings: list[dict], base_url: str, test_results: list[dict], all_endpoints: list[dict], output_file: str = "report.json"):
+    """
+    Consolidates findings and metadata into a final JSON report and validates it against a schema.
+    
+    Args:
+        findings: List of identified bugs/issues.
+        base_url: The base URL of the target API.
+        test_results: The raw results from all executed tests.
+        all_endpoints: The full list of endpoints discovered from the spec.
+        output_file: Path where the report should be saved.
+        
+    Returns:
+        The generated report dictionary.
+    """
     by_severity = {"critical": 0, "high": 0, "medium": 0, "low": 0}
     by_category = {}
     
