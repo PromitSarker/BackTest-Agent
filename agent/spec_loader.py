@@ -2,11 +2,29 @@ import json
 
 
 def load_spec(filepath: str = "openapi.json") -> dict:
+    """
+    Loads an OpenAPI specification from a JSON file.
+    
+    Args:
+        filepath: Path to the OpenAPI JSON file.
+        
+    Returns:
+        The loaded specification as a dictionary.
+    """
     with open(filepath, "r") as f:
         return json.load(f)
 
 
 def extract_endpoints(spec: dict) -> list[dict]:
+    """
+    Extracts endpoint details (path, method, auth requirements) from an OpenAPI spec.
+    
+    Args:
+        spec: The OpenAPI specification dictionary.
+        
+    Returns:
+        A list of dictionaries, each representing an endpoint.
+    """
     endpoints = []
     global_security = spec.get("security", [])
 
