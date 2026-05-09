@@ -2,6 +2,7 @@ import requests
 import re
 import uuid
 from agent.api_client import call_api
+from agent.data_factory import get_payload
 
 def run_tests(base_url: str, endpoints: list[dict], token: str = None) -> list[dict]:
     results = []
@@ -72,7 +73,7 @@ def _test_endpoint(base_url: str, path: str, method: str, token: str = None,
     
     body = None
     if method in ("POST", "PATCH"):
-        body = _get_request_body(path, method, invalid)
+        body = get_payload(path, method, invalid)
         kwargs["json"] = body
     
     try:
@@ -120,23 +121,3 @@ def _interpolate_path(path: str, context: dict) -> str:
     
     return re.sub(r'\{(\w+)\}', replacer, path)
 
-def _get_request_body(path: str, method: str, invalid: bool = False) -> dict:
-    """Generate appropriate request body based on endpoint"""
-    if invalid:
-        return {"invalid_field": "invalid_value"}
-    
-    if "/auth/register" in path:
-        return {
-            "username": f"testuser_{uuid.uuid4().hex[:8]}",
-            "password": "password123"
-        }
-    elif "/auth/login" in path:
-        return {"username": "alice", "password": "alice123"}
-    elif "/posts" in path and "/comments" not in path:
-        return {"body": "Test post content"}
-    elif "/comments" in path:
-        return {"body": "Test comment"}
-    elif "/users/me" in path:
-        return {"bio": "Updated bio", "age": 25}
-    else:
-        return {}
