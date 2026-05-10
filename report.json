@@ -1,24 +1,24 @@
 {
   "target": {
     "base_url": "https://backend-agent-test.onrender.com",
-    "tested_at": "2026-05-10T11:48:55.452445Z",
+    "tested_at": "2026-05-10T12:31:00.560085Z",
     "spec_version": "1.0.0",
     "agent_name": "QA-Agent",
-    "duration_seconds": 6.05
+    "duration_seconds": 8.42
   },
   "summary": {
-    "total": 22,
+    "total": 12,
     "by_severity": {
-      "critical": 1,
-      "high": 1,
-      "medium": 2,
-      "low": 18
+      "critical": 2,
+      "high": 0,
+      "medium": 5,
+      "low": 5
     },
     "by_category": {
-      "headers_cors": 18,
-      "authentication": 1,
-      "authorization": 1,
-      "business_logic": 1,
+      "authorization": 2,
+      "business_logic": 3,
+      "error_handling": 5,
+      "headers_cors": 1,
       "rate_limiting": 1
     },
     "endpoints_tested": 18,
@@ -27,13 +27,248 @@
   },
   "findings": [
     {
-      "id": "BUG-e2f7fb",
-      "category": "headers_cors",
+      "id": "BUG-980a7a",
+      "category": "authorization",
+      "severity": "critical",
+      "endpoint": "/users/me",
+      "method": "PATCH",
+      "title": "Mass assignment allows role escalation",
+      "description": "The API allowed updating the 'role' field to 'admin' via a standard user profile update.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/users/me",
+          "payload": {
+            "role": "admin",
+            "email": "attacker@example.com"
+          }
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "id": 384,
+            "username": "agent_200b2156e9",
+            "email": "attacker@example.com",
+            "password_hash": "$2b$12$mwSL2PWoqM7jQANyC.v4hOggDEfwKPwK7DBkKJuI0pPXtaKlBHKx6",
+            "age": null,
+            "role": "admin",
+            "bio": ""
+          },
+          "text": "{\"id\":384,\"username\":\"agent_200b2156e9\",\"email\":\"attacker@example.com\",\"password_hash\":\"$2b$12$mwSL2PWoqM7jQANyC.v4hOggDEfwKPwK7DBkKJuI0pPXtaKlBHKx6\",\"age\":null,\"role\":\"admin\",\"bio\":\"\"}",
+          "headers": {
+            "Date": "Sun, 10 May 2026 12:30:54 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "3b4b759d-c8cd-4eb2",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "Content-Encoding": "gzip",
+            "CF-RAY": "9f98f537eca1dd0d-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1825
+        }
+      },
+      "reproduction": "Send PATCH to /users/me",
+      "expected": "Role changes should be ignored or rejected for normal users.",
+      "actual": "role=admin accepted",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-fa818e",
+      "category": "authorization",
+      "severity": "critical",
+      "endpoint": "/posts/{post_id}",
+      "method": "PATCH",
+      "title": "Cross-user resource modification allowed",
+      "description": "User B successfully modified User A's post.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/posts/407",
+          "attacker": "User B"
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "id": 407,
+            "author_id": 384,
+            "body": "IDOR_4fe8",
+            "created_at": "2026-05-06T12:00:00Z",
+            "like_count": 0,
+            "author": "agent_200b2156e9"
+          },
+          "text": "{\"id\":407,\"author_id\":384,\"body\":\"IDOR_4fe8\",\"created_at\":\"2026-05-06T12:00:00Z\",\"like_count\":0,\"author\":\"agent_200b2156e9\"}",
+          "headers": {
+            "Date": "Sun, 10 May 2026 12:30:54 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "addd8673-bdfc-448b",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "Content-Encoding": "gzip",
+            "CF-RAY": "9f98f538eb8fa6d0-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1311
+        }
+      },
+      "reproduction": "Send PATCH to /posts/{post_id}",
+      "expected": "403 or 404",
+      "actual": "200",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-bc5713",
+      "category": "business_logic",
+      "severity": "medium",
+      "endpoint": "/posts/{post_id}/like",
+      "method": "POST",
+      "title": "Duplicate like request succeeds",
+      "description": "Liking a post twice succeeded. like_count=2 proves non-idempotent mutable engagement behavior.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/posts/407/like"
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "detail": "liked",
+            "like_count": 2
+          },
+          "text": "{\"detail\":\"liked\",\"like_count\":2}",
+          "headers": {
+            "Date": "Sun, 10 May 2026 12:30:55 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "fc90bedd-c14d-4516",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f98f53a9f82d9eb-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1321
+        }
+      },
+      "reproduction": "Send POST to /posts/{post_id}/like",
+      "expected": "409 Conflict or idempotent 200 without count increment",
+      "actual": "200, like_count=2",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-024570",
+      "category": "business_logic",
+      "severity": "medium",
+      "endpoint": "/posts/{post_id}/like",
+      "method": "DELETE",
+      "title": "Duplicate unlike request succeeds",
+      "description": "Unliking a post twice succeeded. like_count=1 proves non-idempotent mutable engagement behavior.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/posts/407/like"
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "detail": "unliked",
+            "like_count": 1
+          },
+          "text": "{\"detail\":\"unliked\",\"like_count\":1}",
+          "headers": {
+            "Date": "Sun, 10 May 2026 12:30:55 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "58cdecc7-abce-4959",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f98f53c6a13dd0d-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1444
+        }
+      },
+      "reproduction": "Send DELETE to /posts/{post_id}/like",
+      "expected": "409 Conflict or idempotent 200 without count decrement",
+      "actual": "200, like_count=1",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-f2ee74",
+      "category": "business_logic",
+      "severity": "medium",
+      "endpoint": "/users/{user_id}/follow",
+      "method": "POST",
+      "title": "User can follow themselves",
+      "description": "User successfully followed themselves.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/users/384/follow"
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "detail": "followed"
+          },
+          "text": "{\"detail\":\"followed\"}",
+          "headers": {
+            "Date": "Sun, 10 May 2026 12:30:55 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "65a74f0b-2221-4e8c",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f98f53d6cc133a4-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1473
+        }
+      },
+      "reproduction": "Send POST to /users/{user_id}/follow",
+      "expected": "400 Bad Request",
+      "actual": "200",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-14e3aa",
+      "category": "error_handling",
       "severity": "low",
       "endpoint": "/auth/register",
       "method": "POST",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
+      "title": "Server Error (Auth middleware crash)",
+      "description": "Auth middleware crash",
       "evidence": {
         "request": {
           "url": "https://backend-agent-test.onrender.com/auth/register"
@@ -43,33 +278,34 @@
           "json": null,
           "text": "Internal Server Error",
           "headers": {
-            "Date": "Sun, 10 May 2026 11:48:51 GMT",
+            "Date": "Sun, 10 May 2026 12:30:56 GMT",
             "Content-Type": "text/plain; charset=utf-8",
             "Transfer-Encoding": "chunked",
             "Connection": "keep-alive",
             "cf-cache-status": "DYNAMIC",
-            "rndr-id": "ea6b8c4a-1abe-44d8",
+            "rndr-id": "2b429430-a85c-427d",
             "Server": "cloudflare",
             "vary": "Accept-Encoding",
             "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f98b79d3f6133a4-DAC",
+            "CF-RAY": "9f98f53fcd255aca-DAC",
             "alt-svc": "h3=\":443\"; ma=86400"
           },
-          "latency": 0.1587
+          "latency": 0.1145
         }
       },
       "reproduction": "Send POST to /auth/register",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
+      "expected": "4xx",
+      "actual": "500",
+      "confidence": "high"
     },
     {
-      "id": "BUG-77fe7a",
-      "category": "headers_cors",
+      "id": "BUG-dafc4a",
+      "category": "error_handling",
       "severity": "low",
       "endpoint": "/auth/login",
       "method": "POST",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
+      "title": "Server Error (Auth middleware crash)",
+      "description": "Auth middleware crash",
       "evidence": {
         "request": {
           "url": "https://backend-agent-test.onrender.com/auth/login"
@@ -79,117 +315,34 @@
           "json": null,
           "text": "Internal Server Error",
           "headers": {
-            "Date": "Sun, 10 May 2026 11:48:51 GMT",
+            "Date": "Sun, 10 May 2026 12:30:56 GMT",
             "Content-Type": "text/plain; charset=utf-8",
             "Transfer-Encoding": "chunked",
             "Connection": "keep-alive",
             "cf-cache-status": "DYNAMIC",
-            "rndr-id": "7275d680-b26b-446f",
+            "rndr-id": "906c33df-38bb-4122",
             "Server": "cloudflare",
             "vary": "Accept-Encoding",
             "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f98b79e0e8ba6d0-DAC",
+            "CF-RAY": "9f98f5407ff75aca-DAC",
             "alt-svc": "h3=\":443\"; ma=86400"
           },
-          "latency": 0.1309
+          "latency": 0.1118
         }
       },
       "reproduction": "Send POST to /auth/login",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
+      "expected": "4xx",
+      "actual": "500",
+      "confidence": "high"
     },
     {
-      "id": "BUG-e8bc47",
-      "category": "headers_cors",
-      "severity": "low",
-      "endpoint": "/auth/logout",
-      "method": "POST",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
-      "evidence": {
-        "request": {
-          "url": "https://backend-agent-test.onrender.com/auth/logout"
-        },
-        "response": {
-          "status_code": 200,
-          "json": {
-            "detail": "logged out"
-          },
-          "text": "{\"detail\":\"logged out\"}",
-          "headers": {
-            "Date": "Sun, 10 May 2026 11:48:51 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "317b8915-271f-4d51",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f98b79ef9c1a6d0-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "latency": 0.18
-        }
-      },
-      "reproduction": "Send POST to /auth/logout",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
-    },
-    {
-      "id": "BUG-49bc69",
-      "category": "headers_cors",
-      "severity": "low",
-      "endpoint": "/users/me",
-      "method": "GET",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
-      "evidence": {
-        "request": {
-          "url": "https://backend-agent-test.onrender.com/users/me"
-        },
-        "response": {
-          "status_code": 401,
-          "json": {
-            "detail": "Missing bearer token"
-          },
-          "text": "{\"detail\":\"Missing bearer token\"}",
-          "headers": {
-            "Date": "Sun, 10 May 2026 11:48:51 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "a066d2b3-2552-4c21",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f98b79ffe5dd4ed-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "latency": 0.1238
-        }
-      },
-      "reproduction": "Send GET to /users/me",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
-    },
-    {
-      "id": "BUG-e15a68",
-      "category": "headers_cors",
+      "id": "BUG-299f86",
+      "category": "error_handling",
       "severity": "low",
       "endpoint": "/users/me",
       "method": "PATCH",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
+      "title": "Server Error (Unclassified server error)",
+      "description": "Unclassified server error",
       "evidence": {
         "request": {
           "url": "https://backend-agent-test.onrender.com/users/me"
@@ -199,748 +352,108 @@
           "json": null,
           "text": "Internal Server Error",
           "headers": {
-            "Date": "Sun, 10 May 2026 11:48:52 GMT",
+            "Date": "Sun, 10 May 2026 12:30:56 GMT",
             "Content-Type": "text/plain; charset=utf-8",
             "Transfer-Encoding": "chunked",
             "Connection": "keep-alive",
             "cf-cache-status": "DYNAMIC",
-            "rndr-id": "390f5cd4-4fc1-4853",
+            "rndr-id": "cf98d83b-03ad-43c0",
             "Server": "cloudflare",
             "vary": "Accept-Encoding",
             "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f98b7a0dc115aca-DAC",
+            "CF-RAY": "9f98f542ef0633a4-DAC",
             "alt-svc": "h3=\":443\"; ma=86400"
           },
-          "latency": 0.1417
+          "latency": 0.1401
         }
       },
       "reproduction": "Send PATCH to /users/me",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
+      "expected": "4xx",
+      "actual": "500",
+      "confidence": "high"
     },
     {
-      "id": "BUG-7c4684",
-      "category": "authentication",
-      "severity": "critical",
-      "endpoint": "/users/me",
-      "method": "PATCH",
-      "title": "Authentication Bypass",
-      "description": "Endpoint succeeded without token",
+      "id": "BUG-68c683",
+      "category": "error_handling",
+      "severity": "low",
+      "endpoint": "/posts",
+      "method": "POST",
+      "title": "Server Error (Unclassified server error)",
+      "description": "Unclassified server error",
       "evidence": {
         "request": {
-          "url": "https://backend-agent-test.onrender.com/users/me"
+          "url": "https://backend-agent-test.onrender.com/posts"
         },
         "response": {
           "status_code": 500,
           "json": null,
           "text": "Internal Server Error",
           "headers": {
-            "Date": "Sun, 10 May 2026 11:48:52 GMT",
+            "Date": "Sun, 10 May 2026 12:30:56 GMT",
             "Content-Type": "text/plain; charset=utf-8",
             "Transfer-Encoding": "chunked",
             "Connection": "keep-alive",
             "cf-cache-status": "DYNAMIC",
-            "rndr-id": "390f5cd4-4fc1-4853",
+            "rndr-id": "293e6012-f1bb-487c",
             "Server": "cloudflare",
             "vary": "Accept-Encoding",
             "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f98b7a0dc115aca-DAC",
+            "CF-RAY": "9f98f5454dd2dd0d-DAC",
             "alt-svc": "h3=\":443\"; ma=86400"
           },
-          "latency": 0.1417
-        }
-      },
-      "reproduction": "Send PATCH to /users/me",
-      "expected": "401 or 403",
-      "actual": "500"
-    },
-    {
-      "id": "BUG-c1864d",
-      "category": "headers_cors",
-      "severity": "low",
-      "endpoint": "/users/{user_id}",
-      "method": "GET",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
-      "evidence": {
-        "request": {
-          "url": "https://backend-agent-test.onrender.com/users/277"
-        },
-        "response": {
-          "status_code": 200,
-          "json": {
-            "id": 277,
-            "username": "agent_d237fd4f2b",
-            "bio": ""
-          },
-          "text": "{\"id\":277,\"username\":\"agent_d237fd4f2b\",\"bio\":\"\"}",
-          "headers": {
-            "Date": "Sun, 10 May 2026 11:48:52 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "f81ffd45-27cc-46dc",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "Content-Encoding": "gzip",
-            "CF-RAY": "9f98b7a1cb66a6d0-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "latency": 0.1512
-        }
-      },
-      "reproduction": "Send GET to /users/{user_id}",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
-    },
-    {
-      "id": "BUG-2d0cfb",
-      "category": "headers_cors",
-      "severity": "low",
-      "endpoint": "/posts",
-      "method": "GET",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
-      "evidence": {
-        "request": {
-          "url": "https://backend-agent-test.onrender.com/posts"
-        },
-        "response": {
-          "status_code": 200,
-          "json": [
-            {
-              "id": 2,
-              "author_id": 1,
-              "body": "Test post content",
-              "created_at": "2026-05-01T12:00:00Z",
-              "like_count": "44",
-              "author": "alice"
-            },
-            {
-              "id": 3,
-              "author_id": 2,
-              "body": "REPRO PATCH FROM ALICE",
-              "created_at": "2026-05-01T12:00:00Z",
-              "like_count": "0",
-              "author": "bob"
-            },
-            {
-              "id": 4,
-              "author_id": 2,
-              "body": "Bob loves coffee",
-              "created_at": "2026-05-01T12:00:00Z",
-              "like_count": "0",
-              "author": "bob"
-            },
-            {
-              "id": 5,
-              "author_id": 3,
-              "body": "Carol here, just joined",
-              "created_at": "2026-05-01T12:00:00Z",
-              "like_count": "0",
-              "author": "carol"
-            },
-            {
-              "id": 6,
-              "author_id": 1,
-              "body": "",
-              "created_at": "2026-05-06T12:00:00Z",
-              "like_count": "0",
-              "author": "alice"
-            },
-            {
-              "id": 7,
-              "author_id": 1,
-              "body": "",
-              "created_at": "2026-05-06T12:00:00Z",
-              "like_count": "0",
-              "author": "alice"
-            },
-            {
-              "id": 8,
-              "author_id": 1,
-              "body": "Hacked by Bob",
-              "created_at": "2026-05-06T12:00:00Z",
-              "like_count": "0",
-              "author": "alice"
-            },
-            {
-              "id": 9,
-              "author_id": 1,
-              "body": "test post",
-              "created_at": "2026-05-06T12:00:00Z",
-              "like_count": "2",
-              "author": "alice"
-            },
-            {
-              "id": 11,
-              "author_id": 1,
-              "body": "this is a test",
-              "created_at": "2026-05-06T12:00:00Z",
-              "like_count": "0",
-              "author": "alice"
-            },
-            {
-              "id": 12,
-              "author_id": 1,
-              "body": "This is Alice test post for agent testing.",
-              "created_at": "2026-05-06T12:00:00Z",
-              "like_count": "0",
-              "author": "alice"
-            },
-            {
-              "id": 13,
-              "author_id": 2,
-              "body": "This is Bob test post for agent testing.",
-              "created_at": "2026-05-06T12:00:00Z",
-              "like_count": "0",
-              "author": "bob"
-            },
-            {
-              "id": 14,
-              "author_id": 1,
-              "body": "This is Alice test post for agent testing.",
-              "created_at": "2026-05-06T12:00:00Z",
-              "like_count": "0",
-              "author": "alice"
-            },
-            {
-              "id": 15,
-              "author_id": 2,
-              "body": "This is Bob test post for agent testing.",
-              "created_at": "2026-05-06T12:00:00Z",
-              "like_count": "0",
-              "author": "bob"
-            },
-            {
-              "id": 16,
-              "author_id": 1,
-              "body": "This is Alice test post for agent testing.",
-              "created_at": "2026-05-06T12:00:00Z",
-              "like_count": "0",
-              "author": "alice"
-            },
-            {
-              "id": 17,
-              "author_id": 2,
-              "body": "This is Bob test post for agent testing.",
-              "created_at": "2026-05-06T12:00:00Z",
-              "like_count": "0",
-              "author": "bob"
-            },
-            {
-              "id": 18,
-              "author_id": 1,
-              "body": "This is Alice test post for agent testing.",
-              "created_at": "2026-05-06T12:00:00Z",
-              "like_count": "0",
-              "author": "alice"
-            },
-            {
-              "id": 19,
-              "author_id": 2,
-              "body": "This is Bob test post for agent testing.",
-              "created_at": "2026-05-06T12:00:00Z",
-              "like_count": "0",
-              "author": "bob"
-            },
-            {
-              "id": 20,
-              "author_id": 1,
-              "body": "This is Alice test post for agent testing.",
-              "created_at": "2026-05-06T12:00:00Z",
-              "like_count": "0",
-              "author": "alice"
-            },
-            {
-              "id": 21,
-              "author_id": 2,
-              "body": "This is Bob test post for agent testing.",
-              "created_at": "2026-05-06T12:00:00Z",
-              "like_count": "0",
-              "author": "bob"
-            },
-            {
-              "id": 22,
-              "author_id": 1,
-              "body": "This is Alice test post for agent testing.",
-              "created_at": "2026-05-06T12:00:00Z",
-              "like_count": "0",
-              "author": "alice"
-            }
-          ],
-          "text": "[{\"id\":2,\"author_id\":1,\"body\":\"Test post content\",\"created_at\":\"2026-05-01T12:00:00Z\",\"like_count\":\"44\",\"author\":\"alice\"},{\"id\":3,\"author_id\":2,\"body\":\"REPRO PATCH FROM ALICE\",\"created_at\":\"2026-05-01T12:00:00Z\",\"like_count\":\"0\",\"author\":\"bob\"},{\"id\":4,\"author_id\":2,\"body\":\"Bob loves coffee\",\"created_at\":\"2026-05-01T12:00:00Z\",\"like_count\":\"0\",\"author\":\"bob\"},{\"id\":5,\"author_id\":3,\"body\":\"Carol here, just joined\",\"created_at\":\"2026-05-01T12:00:00Z\",\"like_count\":\"0\",\"author\":\"carol\"},{\"id\":6,\"author_id\":1,\"body\":\"\",\"created_at\":\"2026-05-06T12:00:00Z\",\"like_count\":\"0\",\"author\":\"alice\"},{\"id\":7,\"author_id\":1,\"body\":\"\",\"created_at\":\"2026-05-06T12:00:00Z\",\"like_count\":\"0\",\"author\":\"alice\"},{\"id\":8,\"author_id\":1,\"body\":\"Hacked by Bob\",\"created_at\":\"2026-05-06T12:00:00Z\",\"like_count\":\"0\",\"author\":\"alice\"},{\"id\":9,\"author_id\":1,\"body\":\"test post\",\"created_at\":\"2026-05-06T12:00:00Z\",\"like_count\":\"2\",\"author\":\"alice\"},{\"id\":11,\"author_id\":1,\"body\":\"this is a test\",\"created_at\":\"2026-05-06T12:00:00Z\",\"like_count\":\"0\",\"author\":\"alice\"},{\"id\":12,\"author_id\":1,\"body\":\"This is Alice test post for agent testing.\",\"created_at\":\"2026-05-06T12:00:00Z\",\"like_count\":\"0\",\"author\":\"alice\"},{\"id\":13,\"author_id\":2,\"body\":\"This is Bob test post for agent testing.\",\"created_at\":\"2026-05-06T12:00:00Z\",\"like_count\":\"0\",\"author\":\"bob\"},{\"id\":14,\"author_id\":1,\"body\":\"This is Alice test post for agent testing.\",\"created_at\":\"2026-05-06T12:00:00Z\",\"like_count\":\"0\",\"author\":\"alice\"},{\"id\":15,\"author_id\":2,\"body\":\"This is Bob test post for agent testing.\",\"created_at\":\"2026-05-06T12:00:00Z\",\"like_count\":\"0\",\"author\":\"bob\"},{\"id\":16,\"author_id\":1,\"body\":\"This is Alice test post for agent testing.\",\"created_at\":\"2026-05-06T12:00:00Z\",\"like_count\":\"0\",\"author\":\"alice\"},{\"id\":17,\"author_id\":2,\"body\":\"This is Bob test post for agent testing.\",\"created_at\":\"2026-05-06T12:00:00Z\",\"like_count\":\"0\",\"author\":\"bob\"},{\"id\":18,\"author_id\":1,\"body\":\"This is Alice test post for agent testing.\",\"created_at\":\"2026-05",
-          "headers": {
-            "Date": "Sun, 10 May 2026 11:48:52 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "63d41bbc-445a-437d",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "Content-Encoding": "gzip",
-            "CF-RAY": "9f98b7a2b9f95aca-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "latency": 0.1462
-        }
-      },
-      "reproduction": "Send GET to /posts",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
-    },
-    {
-      "id": "BUG-71be04",
-      "category": "headers_cors",
-      "severity": "low",
-      "endpoint": "/posts",
-      "method": "POST",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
-      "evidence": {
-        "request": {
-          "url": "https://backend-agent-test.onrender.com/posts"
-        },
-        "response": {
-          "status_code": 401,
-          "json": {
-            "detail": "Missing bearer token"
-          },
-          "text": "{\"detail\":\"Missing bearer token\"}",
-          "headers": {
-            "Date": "Sun, 10 May 2026 11:48:52 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "14e3bde0-85bd-45d0",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f98b7a38a71dd0d-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "latency": 0.1254
+          "latency": 0.1415
         }
       },
       "reproduction": "Send POST to /posts",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
+      "expected": "4xx",
+      "actual": "500",
+      "confidence": "high"
     },
     {
-      "id": "BUG-0e2fc7",
-      "category": "headers_cors",
-      "severity": "low",
-      "endpoint": "/posts/{post_id}",
-      "method": "GET",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
-      "evidence": {
-        "request": {
-          "url": "https://backend-agent-test.onrender.com/posts/379"
-        },
-        "response": {
-          "status_code": 200,
-          "json": {
-            "id": 379,
-            "author_id": 277,
-            "body": "Test post created by QA Agent",
-            "created_at": "2026-05-06T12:00:00Z",
-            "like_count": 0,
-            "authorName": "agent_d237fd4f2b"
-          },
-          "text": "{\"id\":379,\"author_id\":277,\"body\":\"Test post created by QA Agent\",\"created_at\":\"2026-05-06T12:00:00Z\",\"like_count\":0,\"authorName\":\"agent_d237fd4f2b\"}",
-          "headers": {
-            "Date": "Sun, 10 May 2026 11:48:52 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "acb9b00b-4fe5-4ee7",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "Content-Encoding": "gzip",
-            "CF-RAY": "9f98b7a47e0f33a4-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "latency": 0.144
-        }
-      },
-      "reproduction": "Send GET to /posts/{post_id}",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
-    },
-    {
-      "id": "BUG-d5b185",
-      "category": "headers_cors",
+      "id": "BUG-1aed90",
+      "category": "error_handling",
       "severity": "low",
       "endpoint": "/posts/{post_id}",
       "method": "PATCH",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
+      "title": "Server Error (Unclassified server error)",
+      "description": "Unclassified server error",
       "evidence": {
         "request": {
-          "url": "https://backend-agent-test.onrender.com/posts/379"
+          "url": "https://backend-agent-test.onrender.com/posts/407"
         },
         "response": {
-          "status_code": 401,
-          "json": {
-            "detail": "Missing bearer token"
-          },
-          "text": "{\"detail\":\"Missing bearer token\"}",
+          "status_code": 500,
+          "json": null,
+          "text": "Internal Server Error",
           "headers": {
-            "Date": "Sun, 10 May 2026 11:48:52 GMT",
-            "Content-Type": "application/json",
+            "Date": "Sun, 10 May 2026 12:30:57 GMT",
+            "Content-Type": "text/plain; charset=utf-8",
             "Transfer-Encoding": "chunked",
             "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
             "cf-cache-status": "DYNAMIC",
-            "rndr-id": "85d1e5cd-6f0e-4303",
+            "rndr-id": "65d6a2ee-f0a8-4de0",
             "Server": "cloudflare",
             "vary": "Accept-Encoding",
             "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f98b7a53edda6d0-DAC",
+            "CF-RAY": "9f98f546ecdf5aca-DAC",
             "alt-svc": "h3=\":443\"; ma=86400"
           },
-          "latency": 0.1219
+          "latency": 0.1253
         }
       },
       "reproduction": "Send PATCH to /posts/{post_id}",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
+      "expected": "4xx",
+      "actual": "500",
+      "confidence": "high"
     },
     {
-      "id": "BUG-469410",
+      "id": "BUG-080aba",
       "category": "headers_cors",
-      "severity": "low",
-      "endpoint": "/posts/{post_id}",
-      "method": "DELETE",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
-      "evidence": {
-        "request": {
-          "url": "https://backend-agent-test.onrender.com/posts/379"
-        },
-        "response": {
-          "status_code": 401,
-          "json": {
-            "detail": "Missing bearer token"
-          },
-          "text": "{\"detail\":\"Missing bearer token\"}",
-          "headers": {
-            "Date": "Sun, 10 May 2026 11:48:52 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "983cb9f5-0915-437e",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f98b7a60b8fd9eb-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "latency": 0.1378
-        }
-      },
-      "reproduction": "Send DELETE to /posts/{post_id}",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
-    },
-    {
-      "id": "BUG-1baf0c",
-      "category": "headers_cors",
-      "severity": "low",
-      "endpoint": "/posts/{post_id}/comments",
-      "method": "GET",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
-      "evidence": {
-        "request": {
-          "url": "https://backend-agent-test.onrender.com/posts/379/comments"
-        },
-        "response": {
-          "status_code": 200,
-          "json": [
-            {
-              "id": 110,
-              "post_id": 379,
-              "author_id": 277,
-              "body": "Test comment by QA Agent"
-            }
-          ],
-          "text": "[{\"id\":110,\"post_id\":379,\"author_id\":277,\"body\":\"Test comment by QA Agent\"}]",
-          "headers": {
-            "Date": "Sun, 10 May 2026 11:48:53 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "3cb84646-4122-4ed4",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "Content-Encoding": "gzip",
-            "CF-RAY": "9f98b7a6fe91b6db-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "latency": 0.1529
-        }
-      },
-      "reproduction": "Send GET to /posts/{post_id}/comments",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
-    },
-    {
-      "id": "BUG-0eb142",
-      "category": "headers_cors",
-      "severity": "low",
-      "endpoint": "/posts/{post_id}/comments",
-      "method": "POST",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
-      "evidence": {
-        "request": {
-          "url": "https://backend-agent-test.onrender.com/posts/379/comments"
-        },
-        "response": {
-          "status_code": 401,
-          "json": {
-            "detail": "Missing bearer token"
-          },
-          "text": "{\"detail\":\"Missing bearer token\"}",
-          "headers": {
-            "Date": "Sun, 10 May 2026 11:48:53 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "c73294a2-cdb4-41cd",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f98b7a7fe6bdd0d-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "latency": 0.1625
-        }
-      },
-      "reproduction": "Send POST to /posts/{post_id}/comments",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
-    },
-    {
-      "id": "BUG-0e72d1",
-      "category": "headers_cors",
-      "severity": "low",
-      "endpoint": "/posts/{post_id}/like",
-      "method": "POST",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
-      "evidence": {
-        "request": {
-          "url": "https://backend-agent-test.onrender.com/posts/379/like"
-        },
-        "response": {
-          "status_code": 401,
-          "json": {
-            "detail": "Missing bearer token"
-          },
-          "text": "{\"detail\":\"Missing bearer token\"}",
-          "headers": {
-            "Date": "Sun, 10 May 2026 11:48:53 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "1e2e8486-77a3-4ea8",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f98b7a8cacb33a4-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "latency": 0.1099
-        }
-      },
-      "reproduction": "Send POST to /posts/{post_id}/like",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
-    },
-    {
-      "id": "BUG-cad09a",
-      "category": "headers_cors",
-      "severity": "low",
-      "endpoint": "/posts/{post_id}/like",
-      "method": "DELETE",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
-      "evidence": {
-        "request": {
-          "url": "https://backend-agent-test.onrender.com/posts/379/like"
-        },
-        "response": {
-          "status_code": 401,
-          "json": {
-            "detail": "Missing bearer token"
-          },
-          "text": "{\"detail\":\"Missing bearer token\"}",
-          "headers": {
-            "Date": "Sun, 10 May 2026 11:48:53 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "rndr-id": "6a4c247c-7a04-417f",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "cf-cache-status": "DYNAMIC",
-            "CF-RAY": "9f98b7a97c048cdb-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "latency": 0.1206
-        }
-      },
-      "reproduction": "Send DELETE to /posts/{post_id}/like",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
-    },
-    {
-      "id": "BUG-716fad",
-      "category": "headers_cors",
-      "severity": "low",
-      "endpoint": "/users/{user_id}/follow",
-      "method": "POST",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
-      "evidence": {
-        "request": {
-          "url": "https://backend-agent-test.onrender.com/users/277/follow"
-        },
-        "response": {
-          "status_code": 401,
-          "json": {
-            "detail": "Missing bearer token"
-          },
-          "text": "{\"detail\":\"Missing bearer token\"}",
-          "headers": {
-            "Date": "Sun, 10 May 2026 11:48:53 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "rndr-id": "5fe9b0d2-6479-4d99",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "cf-cache-status": "DYNAMIC",
-            "CF-RAY": "9f98b7aa69c35aca-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "latency": 0.1295
-        }
-      },
-      "reproduction": "Send POST to /users/{user_id}/follow",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
-    },
-    {
-      "id": "BUG-84edfa",
-      "category": "headers_cors",
-      "severity": "low",
-      "endpoint": "/users/{user_id}/follow",
-      "method": "DELETE",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
-      "evidence": {
-        "request": {
-          "url": "https://backend-agent-test.onrender.com/users/277/follow"
-        },
-        "response": {
-          "status_code": 401,
-          "json": {
-            "detail": "Missing bearer token"
-          },
-          "text": "{\"detail\":\"Missing bearer token\"}",
-          "headers": {
-            "Date": "Sun, 10 May 2026 11:48:53 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "f5e1a633-821c-4827",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f98b7ab3b2633a4-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "latency": 0.1369
-        }
-      },
-      "reproduction": "Send DELETE to /users/{user_id}/follow",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
-    },
-    {
-      "id": "BUG-781f01",
-      "category": "headers_cors",
-      "severity": "low",
+      "severity": "medium",
       "endpoint": "/",
       "method": "GET",
-      "title": "Missing Security Headers",
-      "description": "Missing: content-security-policy, x-content-type-options, strict-transport-security",
+      "title": "Wildcard CORS origin allows credentials",
+      "description": "Wildcard CORS allows credentials.",
       "evidence": {
         "request": {
           "url": "https://backend-agent-test.onrender.com/"
@@ -953,7 +466,7 @@
           },
           "text": "{\"name\":\"Mini Social API\",\"version\":\"1.0.0\"}",
           "headers": {
-            "Date": "Sun, 10 May 2026 11:48:53 GMT",
+            "Date": "Sun, 10 May 2026 12:30:58 GMT",
             "Content-Type": "application/json",
             "Transfer-Encoding": "chunked",
             "Connection": "keep-alive",
@@ -962,152 +475,39 @@
             "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
             "access-control-allow-origin": "*",
             "cf-cache-status": "DYNAMIC",
-            "rndr-id": "dc8b779c-e19f-48ec",
+            "rndr-id": "fef570f2-6780-49a7",
             "Server": "cloudflare",
             "vary": "Accept-Encoding",
             "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f98b7ac1db6a6d0-DAC",
+            "CF-RAY": "9f98f54d79cc33a4-DAC",
             "alt-svc": "h3=\":443\"; ma=86400"
           },
-          "latency": 0.1396
+          "latency": 0.1321
         }
       },
       "reproduction": "Send GET to /",
-      "expected": "Security headers present",
-      "actual": "Headers missing"
+      "expected": "Restricted origin or credentials=false",
+      "actual": "origin=*, credentials=true",
+      "confidence": "high"
     },
     {
-      "id": "BUG-3136c1",
-      "category": "authorization",
-      "severity": "high",
-      "endpoint": "/posts/{post_id}",
-      "method": "PATCH",
-      "title": "IDOR on Post Update",
-      "description": "User B modified User A's post",
-      "evidence": {
-        "request": {
-          "url": "https://backend-agent-test.onrender.com/posts/379",
-          "auth": "User B Token"
-        },
-        "response": {
-          "status_code": 200,
-          "json": {
-            "id": 379,
-            "author_id": 277,
-            "body": "Hacked",
-            "created_at": "2026-05-06T12:00:00Z",
-            "like_count": 0,
-            "author": "agent_d237fd4f2b"
-          },
-          "text": "{\"id\":379,\"author_id\":277,\"body\":\"Hacked\",\"created_at\":\"2026-05-06T12:00:00Z\",\"like_count\":0,\"author\":\"agent_d237fd4f2b\"}",
-          "headers": {
-            "Date": "Sun, 10 May 2026 11:48:53 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "cd6be9ea-ab59-4fb4",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "Content-Encoding": "gzip",
-            "CF-RAY": "9f98b7acf9106dbe-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "latency": 0.1429
-        }
-      },
-      "reproduction": "Send PATCH to /posts/{post_id}",
-      "expected": "403/404",
-      "actual": "200"
-    },
-    {
-      "id": "BUG-1a9f5f",
-      "category": "business_logic",
-      "severity": "medium",
-      "endpoint": "/users/{user_id}/follow",
-      "method": "POST",
-      "title": "Invalid Self-Follow",
-      "description": "User was allowed to follow their own account",
-      "evidence": {
-        "request": {
-          "url": "https://backend-agent-test.onrender.com/users/277/follow"
-        },
-        "response": {
-          "status_code": 200,
-          "json": {
-            "detail": "followed"
-          },
-          "text": "{\"detail\":\"followed\"}",
-          "headers": {
-            "Date": "Sun, 10 May 2026 11:48:54 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "b0294578-c77d-4d6b",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f98b7aeac3a6dbe-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "latency": 0.1461
-        }
-      },
-      "reproduction": "Send POST to /users/{user_id}/follow",
-      "expected": "400/422",
-      "actual": "200"
-    },
-    {
-      "id": "BUG-54a73b",
+      "id": "BUG-893f0d",
       "category": "rate_limiting",
       "severity": "medium",
       "endpoint": "/auth/login",
       "method": "POST",
-      "title": "No Throttling",
-      "description": "Rapid failed logins did not trigger rate limiting",
+      "title": "No observable rate limit on repeated failed login attempts",
+      "description": "Sent 12 failed login attempts without being throttled.",
       "evidence": {
         "request": {
           "url": "https://backend-agent-test.onrender.com/auth/login"
         },
-        "response": {
-          "status_code": 401,
-          "json": {
-            "detail": "invalid credentials"
-          },
-          "text": "{\"detail\":\"invalid credentials\"}",
-          "headers": {
-            "Date": "Sun, 10 May 2026 11:48:55 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "0b3500c6-780d-42e9",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f98b7b65888a6d0-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "latency": 0.1084
-        }
+        "response": {}
       },
       "reproduction": "Send POST to /auth/login",
-      "expected": "429",
-      "actual": "401"
+      "expected": "429 or a clear throttling response",
+      "actual": "401, 401, 401, 401, 401, 401, 401, 401, 401, 401, 401, 401",
+      "confidence": "high"
     }
   ]
 }

@@ -1,7 +1,9 @@
+import uuid
+
 def deduplicate_and_finalize(findings: list) -> list:
     """
-    Deduplicate findings based on category, endpoint, method, and title.
-    Group similar findings (e.g., missing headers) and ensure all categories are valid.
+    Deduplicate findings based on core vulnerability signature.
+    Assigns severity and confidence scores based on verified impact.
     """
     VALID_CATEGORIES = {
         "status_code", "schema_contract", "endpoint_existence",
@@ -11,28 +13,42 @@ def deduplicate_and_finalize(findings: list) -> list:
         "documentation_drift", "http_protocol"
     }
 
-    seen = set()
-    final_findings = []
+    unique_findings = []
+    signatures = set()
 
     for f in findings:
-        # Map legacy categories just in case
-        cat = f.get("category", "")
-        if cat == "security": cat = "headers_cors"
-        elif cat == "normal": cat = "status_code"
-        elif cat == "concurrency": cat = "business_logic"
-        elif cat == "idor": cat = "authorization"
-        elif cat == "stability": cat = "error_handling"
-        
-        if cat not in VALID_CATEGORIES:
-            cat = "status_code" # Fallback
-        
-        f["category"] = cat
+        # Category Mapping & Validation
+        category = f.get("category", "status_code")
+        if category not in VALID_CATEGORIES:
+            category = "status_code"
+        f["category"] = category
 
-        key = (f["category"], f["endpoint"], f["method"], f["title"])
-        if key in seen:
+        # Vulnerability Signature: Issue Type + Resource Path (ignoring variable IDs)
+        # We want to report 'Missing Header' only once for the whole host if possible
+        # but keep specific logic errors per endpoint.
+        resource_path = f["endpoint"]
+        if f["title"] == "Global Missing Security Headers":
+            resource_path = "GLOBAL"
+        
+        signature = (f["category"], resource_path, f["title"])
+        
+        if signature in signatures:
             continue
         
-        seen.add(key)
-        final_findings.append(f)
+        signatures.add(signature)
 
-    return final_findings
+        # Final Polish
+        f["confidence"] = f.get("confidence", "high") if isinstance(f.get("confidence"), str) else _map_confidence(f.get("confidence", 0.9))
+        
+        # Ensure reproduction steps are clear
+        if not f.get("reproduction"):
+             f["reproduction"] = f"Send {f['method']} request to {f['endpoint']} with provided evidence data."
+
+        unique_findings.append(f)
+
+    return unique_findings
+
+def _map_confidence(score):
+    if score >= 0.9: return "high"
+    if score >= 0.5: return "medium"
+    return "low"

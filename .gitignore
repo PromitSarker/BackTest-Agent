@@ -2,3 +2,4 @@
 __pycache__
 .env
 openapi.json
+report.schema.json
