@@ -1,31 +1,9 @@
 import json
+import os
 from datetime import datetime
-from jsonschema import validate, ValidationError
+from jsonschema import validate
 
-REPORT_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "target": {"type": "object"},
-        "summary": {"type": "object"},
-        "findings": {"type": "array"}
-    },
-    "required": ["target", "summary", "findings"]
-}
-
-def generate_report(findings: list[dict], base_url: str, test_results: list[dict], all_endpoints: list[dict], output_file: str = "report.json"):
-    """
-    Consolidates findings and metadata into a final JSON report and validates it against a schema.
-    
-    Args:
-        findings: List of identified bugs/issues.
-        base_url: The base URL of the target API.
-        test_results: The raw results from all executed tests.
-        all_endpoints: The full list of endpoints discovered from the spec.
-        output_file: Path where the report should be saved.
-        
-    Returns:
-        The generated report dictionary.
-    """
+def generate_report(findings: list[dict], base_url: str, spec: dict, endpoints: list[dict], tested_endpoints_list: list[str], duration_seconds: float, output_file: str = "report.json"):
     by_severity = {"critical": 0, "high": 0, "medium": 0, "low": 0}
     by_category = {}
     
@@ -34,24 +12,24 @@ def generate_report(findings: list[dict], base_url: str, test_results: list[dict
         if severity in by_severity:
             by_severity[severity] += 1
         
-        category = f.get("category", "unknown")
+        category = f.get("category", "status_code")
         by_category[category] = by_category.get(category, 0) + 1
     
-    # Calculate coverage
-    tested_endpoints = set()
-    for tr in test_results:
-        tested_endpoints.add((tr["method"], tr["endpoint"]))
-    
-    total_endpoints = len(all_endpoints)
-    tested_count = len(tested_endpoints)
+    # Coverage calculation based on unique paths tested
+    total_endpoints = len(endpoints) if endpoints else 1
+    tested_count = len(set(tested_endpoints_list))
     coverage = (tested_count / total_endpoints * 100) if total_endpoints > 0 else 0
+    coverage = min(coverage, 100.0)
+
+    spec_version = spec.get("info", {}).get("version", "1.0.0")
 
     report = {
         "target": {
             "base_url": base_url,
             "tested_at": datetime.utcnow().isoformat() + "Z",
+            "spec_version": spec_version,
             "agent_name": "QA-Agent",
-            "duration_seconds": 0
+            "duration_seconds": float(duration_seconds)
         },
         "summary": {
             "total": len(findings),
@@ -64,7 +42,12 @@ def generate_report(findings: list[dict], base_url: str, test_results: list[dict
         "findings": findings
     }
     
-    validate(instance=report, schema=REPORT_SCHEMA)
+    # Validate against actual schema file
+    schema_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "report.schema.json")
+    if os.path.exists(schema_path):
+        with open(schema_path, "r") as sf:
+            schema = json.load(sf)
+        validate(instance=report, schema=schema)
     
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)

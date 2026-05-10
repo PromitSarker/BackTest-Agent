@@ -1,27 +1,32 @@
 import uuid
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+from agent.llm_client import llm_client
+from agent.logger import logger
 
-def get_payload(path: str, method: str, invalid: bool = False) -> Dict[str, Any]:
+def get_payload(path: str, method: str, test_type: str = "normal", operation_spec: Optional[dict] = None) -> Dict[str, Any]:
     """
-    Generates appropriate request body based on endpoint path and method.
-    
-    Args:
-        path: The API endpoint path.
-        method: The HTTP method (POST, PATCH, etc.)
-        invalid: If True, returns intentionally incorrect data for validation testing.
-        
-    Returns:
-        A dictionary containing the payload.
+    Generates appropriate request body based on endpoint, method, and test type.
+    Uses LLM if available, otherwise falls back to basic templates.
     """
-    if invalid:
-        return {"invalid_field": "invalid_value"}
-    
     method = method.upper()
     if method not in ("POST", "PATCH", "PUT"):
         return {}
 
-    # Define mappings for different endpoints
-    # We use path fragments for matching
+    # Try LLM generation first if spec is provided
+    if operation_spec:
+        logger.debug(f"Generating {test_type} payload via LLM for {method} {path}")
+        llm_payload = llm_client.generate_payload(operation_spec, test_type)
+        if llm_payload:
+            return llm_payload
+
+    # Fallback to hardcoded templates or generic invalid data
+    if test_type == "invalid_data":
+        return {"invalid_field": "invalid_value"}
+    
+    if test_type == "fuzzing":
+        return {"fuzz": "A" * 10000, "injection": "'; DROP TABLE users; --"}
+
+    # Define mappings for different endpoints as fallback
     payload_templates = {
         "/auth/register": lambda: {
             "username": f"testuser_{uuid.uuid4().hex[:8]}",
@@ -46,7 +51,6 @@ def get_payload(path: str, method: str, invalid: bool = False) -> Dict[str, Any]
     # Match path to templates
     for fragment, template in payload_templates.items():
         if fragment in path:
-            # Special case for comments which also contains /posts usually
             if fragment == "/posts" and "/comments" in path:
                 continue
             return template()

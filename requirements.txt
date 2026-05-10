@@ -4,3 +4,4 @@ langgraph
 openai
 jsonschema
 dotenv
+groq
