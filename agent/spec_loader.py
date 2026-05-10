@@ -32,10 +32,29 @@ def extract_endpoints(spec: dict) -> list[dict]:
         for method, details in methods.items():
             if method.lower() in ("get", "post", "patch", "delete", "put"):
                 requires_auth = _check_auth(details, global_security)
+                
+                # Extract deeper metadata
+                parameters = details.get("parameters", [])
+                request_body = details.get("requestBody", {})
+                has_request_body = bool(request_body)
+                request_schema = request_body.get("content", {}).get("application/json", {}).get("schema", {})
+                
+                responses = details.get("responses", {})
+                expected_status_codes = list(responses.keys())
+                response_schemas = {
+                    code: resp.get("content", {}).get("application/json", {}).get("schema", {})
+                    for code, resp in responses.items()
+                }
+
                 endpoints.append({
                     "path": path,
                     "method": method.upper(),
                     "requires_auth": requires_auth,
+                    "parameters": parameters,
+                    "has_request_body": has_request_body,
+                    "request_schema": request_schema,
+                    "expected_status_codes": expected_status_codes,
+                    "response_schemas": response_schemas,
                     "operation": details
                 })
 

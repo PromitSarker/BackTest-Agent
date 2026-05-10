@@ -1,22 +1,25 @@
 {
   "target": {
     "base_url": "https://backend-agent-test.onrender.com",
-    "tested_at": "2026-05-09T13:05:40.750124Z",
+    "tested_at": "2026-05-10T12:31:00.560085Z",
+    "spec_version": "1.0.0",
     "agent_name": "QA-Agent",
-    "duration_seconds": 0
+    "duration_seconds": 8.42
   },
   "summary": {
-    "total": 8,
+    "total": 12,
     "by_severity": {
-      "critical": 0,
-      "high": 6,
-      "medium": 2,
-      "low": 0
+      "critical": 2,
+      "high": 0,
+      "medium": 5,
+      "low": 5
     },
     "by_category": {
-      "status_code": 2,
-      "input_validation": 5,
-      "authentication": 1
+      "authorization": 2,
+      "business_logic": 3,
+      "error_handling": 5,
+      "headers_cors": 1,
+      "rate_limiting": 1
     },
     "endpoints_tested": 18,
     "endpoints_total": 18,
@@ -24,403 +27,487 @@
   },
   "findings": [
     {
-      "id": "BUG-78093b",
-      "category": "status_code",
+      "id": "BUG-980a7a",
+      "category": "authorization",
+      "severity": "critical",
+      "endpoint": "/users/me",
+      "method": "PATCH",
+      "title": "Mass assignment allows role escalation",
+      "description": "The API allowed updating the 'role' field to 'admin' via a standard user profile update.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/users/me",
+          "payload": {
+            "role": "admin",
+            "email": "attacker@example.com"
+          }
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "id": 384,
+            "username": "agent_200b2156e9",
+            "email": "attacker@example.com",
+            "password_hash": "$2b$12$mwSL2PWoqM7jQANyC.v4hOggDEfwKPwK7DBkKJuI0pPXtaKlBHKx6",
+            "age": null,
+            "role": "admin",
+            "bio": ""
+          },
+          "text": "{\"id\":384,\"username\":\"agent_200b2156e9\",\"email\":\"attacker@example.com\",\"password_hash\":\"$2b$12$mwSL2PWoqM7jQANyC.v4hOggDEfwKPwK7DBkKJuI0pPXtaKlBHKx6\",\"age\":null,\"role\":\"admin\",\"bio\":\"\"}",
+          "headers": {
+            "Date": "Sun, 10 May 2026 12:30:54 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "3b4b759d-c8cd-4eb2",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "Content-Encoding": "gzip",
+            "CF-RAY": "9f98f537eca1dd0d-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1825
+        }
+      },
+      "reproduction": "Send PATCH to /users/me",
+      "expected": "Role changes should be ignored or rejected for normal users.",
+      "actual": "role=admin accepted",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-fa818e",
+      "category": "authorization",
+      "severity": "critical",
+      "endpoint": "/posts/{post_id}",
+      "method": "PATCH",
+      "title": "Cross-user resource modification allowed",
+      "description": "User B successfully modified User A's post.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/posts/407",
+          "attacker": "User B"
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "id": 407,
+            "author_id": 384,
+            "body": "IDOR_4fe8",
+            "created_at": "2026-05-06T12:00:00Z",
+            "like_count": 0,
+            "author": "agent_200b2156e9"
+          },
+          "text": "{\"id\":407,\"author_id\":384,\"body\":\"IDOR_4fe8\",\"created_at\":\"2026-05-06T12:00:00Z\",\"like_count\":0,\"author\":\"agent_200b2156e9\"}",
+          "headers": {
+            "Date": "Sun, 10 May 2026 12:30:54 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "addd8673-bdfc-448b",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "Content-Encoding": "gzip",
+            "CF-RAY": "9f98f538eb8fa6d0-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1311
+        }
+      },
+      "reproduction": "Send PATCH to /posts/{post_id}",
+      "expected": "403 or 404",
+      "actual": "200",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-bc5713",
+      "category": "business_logic",
+      "severity": "medium",
+      "endpoint": "/posts/{post_id}/like",
+      "method": "POST",
+      "title": "Duplicate like request succeeds",
+      "description": "Liking a post twice succeeded. like_count=2 proves non-idempotent mutable engagement behavior.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/posts/407/like"
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "detail": "liked",
+            "like_count": 2
+          },
+          "text": "{\"detail\":\"liked\",\"like_count\":2}",
+          "headers": {
+            "Date": "Sun, 10 May 2026 12:30:55 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "fc90bedd-c14d-4516",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f98f53a9f82d9eb-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1321
+        }
+      },
+      "reproduction": "Send POST to /posts/{post_id}/like",
+      "expected": "409 Conflict or idempotent 200 without count increment",
+      "actual": "200, like_count=2",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-024570",
+      "category": "business_logic",
+      "severity": "medium",
+      "endpoint": "/posts/{post_id}/like",
+      "method": "DELETE",
+      "title": "Duplicate unlike request succeeds",
+      "description": "Unliking a post twice succeeded. like_count=1 proves non-idempotent mutable engagement behavior.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/posts/407/like"
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "detail": "unliked",
+            "like_count": 1
+          },
+          "text": "{\"detail\":\"unliked\",\"like_count\":1}",
+          "headers": {
+            "Date": "Sun, 10 May 2026 12:30:55 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "58cdecc7-abce-4959",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f98f53c6a13dd0d-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1444
+        }
+      },
+      "reproduction": "Send DELETE to /posts/{post_id}/like",
+      "expected": "409 Conflict or idempotent 200 without count decrement",
+      "actual": "200, like_count=1",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-f2ee74",
+      "category": "business_logic",
+      "severity": "medium",
+      "endpoint": "/users/{user_id}/follow",
+      "method": "POST",
+      "title": "User can follow themselves",
+      "description": "User successfully followed themselves.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/users/384/follow"
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "detail": "followed"
+          },
+          "text": "{\"detail\":\"followed\"}",
+          "headers": {
+            "Date": "Sun, 10 May 2026 12:30:55 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "65a74f0b-2221-4e8c",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f98f53d6cc133a4-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1473
+        }
+      },
+      "reproduction": "Send POST to /users/{user_id}/follow",
+      "expected": "400 Bad Request",
+      "actual": "200",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-14e3aa",
+      "category": "error_handling",
+      "severity": "low",
+      "endpoint": "/auth/register",
+      "method": "POST",
+      "title": "Server Error (Auth middleware crash)",
+      "description": "Auth middleware crash",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/auth/register"
+        },
+        "response": {
+          "status_code": 500,
+          "json": null,
+          "text": "Internal Server Error",
+          "headers": {
+            "Date": "Sun, 10 May 2026 12:30:56 GMT",
+            "Content-Type": "text/plain; charset=utf-8",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "2b429430-a85c-427d",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f98f53fcd255aca-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1145
+        }
+      },
+      "reproduction": "Send POST to /auth/register",
+      "expected": "4xx",
+      "actual": "500",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-dafc4a",
+      "category": "error_handling",
+      "severity": "low",
+      "endpoint": "/auth/login",
+      "method": "POST",
+      "title": "Server Error (Auth middleware crash)",
+      "description": "Auth middleware crash",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/auth/login"
+        },
+        "response": {
+          "status_code": 500,
+          "json": null,
+          "text": "Internal Server Error",
+          "headers": {
+            "Date": "Sun, 10 May 2026 12:30:56 GMT",
+            "Content-Type": "text/plain; charset=utf-8",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "906c33df-38bb-4122",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f98f5407ff75aca-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1118
+        }
+      },
+      "reproduction": "Send POST to /auth/login",
+      "expected": "4xx",
+      "actual": "500",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-299f86",
+      "category": "error_handling",
+      "severity": "low",
+      "endpoint": "/users/me",
+      "method": "PATCH",
+      "title": "Server Error (Unclassified server error)",
+      "description": "Unclassified server error",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/users/me"
+        },
+        "response": {
+          "status_code": 500,
+          "json": null,
+          "text": "Internal Server Error",
+          "headers": {
+            "Date": "Sun, 10 May 2026 12:30:56 GMT",
+            "Content-Type": "text/plain; charset=utf-8",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "cf98d83b-03ad-43c0",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f98f542ef0633a4-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1401
+        }
+      },
+      "reproduction": "Send PATCH to /users/me",
+      "expected": "4xx",
+      "actual": "500",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-68c683",
+      "category": "error_handling",
+      "severity": "low",
+      "endpoint": "/posts",
+      "method": "POST",
+      "title": "Server Error (Unclassified server error)",
+      "description": "Unclassified server error",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/posts"
+        },
+        "response": {
+          "status_code": 500,
+          "json": null,
+          "text": "Internal Server Error",
+          "headers": {
+            "Date": "Sun, 10 May 2026 12:30:56 GMT",
+            "Content-Type": "text/plain; charset=utf-8",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "293e6012-f1bb-487c",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f98f5454dd2dd0d-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1415
+        }
+      },
+      "reproduction": "Send POST to /posts",
+      "expected": "4xx",
+      "actual": "500",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-1aed90",
+      "category": "error_handling",
+      "severity": "low",
+      "endpoint": "/posts/{post_id}",
+      "method": "PATCH",
+      "title": "Server Error (Unclassified server error)",
+      "description": "Unclassified server error",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/posts/407"
+        },
+        "response": {
+          "status_code": 500,
+          "json": null,
+          "text": "Internal Server Error",
+          "headers": {
+            "Date": "Sun, 10 May 2026 12:30:57 GMT",
+            "Content-Type": "text/plain; charset=utf-8",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "65d6a2ee-f0a8-4de0",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f98f546ecdf5aca-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1253
+        }
+      },
+      "reproduction": "Send PATCH to /posts/{post_id}",
+      "expected": "4xx",
+      "actual": "500",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-080aba",
+      "category": "headers_cors",
+      "severity": "medium",
+      "endpoint": "/",
+      "method": "GET",
+      "title": "Wildcard CORS origin allows credentials",
+      "description": "Wildcard CORS allows credentials.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/"
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "name": "Mini Social API",
+            "version": "1.0.0"
+          },
+          "text": "{\"name\":\"Mini Social API\",\"version\":\"1.0.0\"}",
+          "headers": {
+            "Date": "Sun, 10 May 2026 12:30:58 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "fef570f2-6780-49a7",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9f98f54d79cc33a4-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1321
+        }
+      },
+      "reproduction": "Send GET to /",
+      "expected": "Restricted origin or credentials=false",
+      "actual": "origin=*, credentials=true",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-893f0d",
+      "category": "rate_limiting",
       "severity": "medium",
       "endpoint": "/auth/login",
       "method": "POST",
-      "title": "Unexpected status code",
-      "description": "Request returned 401 but expected one of (200,).",
+      "title": "No observable rate limit on repeated failed login attempts",
+      "description": "Sent 12 failed login attempts without being throttled.",
       "evidence": {
         "request": {
-          "method": "POST",
-          "url": "https://backend-agent-test.onrender.com/auth/login",
-          "headers": {},
-          "has_auth": true,
-          "body": {
-            "username": "alice",
-            "password": "alice123"
-          }
+          "url": "https://backend-agent-test.onrender.com/auth/login"
         },
-        "response": {
-          "status_code": 401,
-          "headers": {
-            "Date": "Sat, 09 May 2026 13:05:34 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "17a99651-c6eb-453e",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f90eaa05f08a6d0-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "body": "{\"detail\":\"invalid credentials\"}",
-          "json": {
-            "detail": "invalid credentials"
-          }
-        }
+        "response": {}
       },
-      "reproduction": "Send POST request to /auth/login with valid data.",
-      "expected": "200",
-      "actual": "401"
-    },
-    {
-      "id": "BUG-48d191",
-      "category": "input_validation",
-      "severity": "high",
-      "endpoint": "/auth/logout",
-      "method": "POST",
-      "title": "Missing Input Validation",
-      "description": "Endpoint succeeded despite being sent intentionally invalid data.",
-      "evidence": {
-        "request": {
-          "method": "POST",
-          "url": "https://backend-agent-test.onrender.com/auth/logout",
-          "headers": {},
-          "has_auth": true,
-          "body": {
-            "invalid_field": "invalid_value"
-          }
-        },
-        "response": {
-          "status_code": 200,
-          "headers": {
-            "Date": "Sat, 09 May 2026 13:05:35 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "b16eab55-91e9-4bc7",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f90eaa4fb5add0d-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "body": "{\"detail\":\"logged out\"}",
-          "json": {
-            "detail": "logged out"
-          }
-        }
-      },
-      "reproduction": "Send request to /auth/logout with malformed JSON or incorrect fields.",
-      "expected": "400 or 422",
-      "actual": "200"
-    },
-    {
-      "id": "BUG-dfe87f",
-      "category": "authentication",
-      "severity": "high",
-      "endpoint": "/users/me",
-      "method": "PATCH",
-      "title": "Authentication Bypass",
-      "description": "Endpoint requires authentication but succeeded without a valid token.",
-      "evidence": {
-        "request": {
-          "method": "PATCH",
-          "url": "https://backend-agent-test.onrender.com/users/me",
-          "headers": {},
-          "has_auth": false,
-          "body": {
-            "bio": "Updated bio",
-            "age": 25
-          }
-        },
-        "response": {
-          "status_code": 200,
-          "headers": {
-            "Date": "Sat, 09 May 2026 13:05:36 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "85398c22-7c5e-420e",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "Content-Encoding": "gzip",
-            "CF-RAY": "9f90eaa8e897b6db-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "body": "{\"id\":1,\"username\":\"alice\",\"email\":\"invalid\",\"password_hash\":\"hacked\",\"age\":25,\"role\":\"admin\",\"bio\":\"Updated bio\",\"body\":\"x\",\"invalid_field\":\"invalid_value\"}",
-          "json": {
-            "id": 1,
-            "username": "alice",
-            "email": "invalid",
-            "password_hash": "hacked",
-            "age": 25,
-            "role": "admin",
-            "bio": "Updated bio",
-            "body": "x",
-            "invalid_field": "invalid_value"
-          }
-        }
-      },
-      "reproduction": "Send request to /users/me without Authorization header",
-      "expected": "401 or 403",
-      "actual": "200"
-    },
-    {
-      "id": "BUG-63e433",
-      "category": "input_validation",
-      "severity": "high",
-      "endpoint": "/users/me",
-      "method": "PATCH",
-      "title": "Missing Input Validation",
-      "description": "Endpoint succeeded despite being sent intentionally invalid data.",
-      "evidence": {
-        "request": {
-          "method": "PATCH",
-          "url": "https://backend-agent-test.onrender.com/users/me",
-          "headers": {},
-          "has_auth": true,
-          "body": {
-            "invalid_field": "invalid_value"
-          }
-        },
-        "response": {
-          "status_code": 200,
-          "headers": {
-            "Date": "Sat, 09 May 2026 13:05:36 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "0172e186-e0a9-4ce4",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "Content-Encoding": "gzip",
-            "CF-RAY": "9f90eaa9e9bb33a4-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "body": "{\"id\":164,\"username\":\"testuser_f4e73324\",\"email\":\"\",\"password_hash\":\"$2b$12$BApki4MDgHS8E0in2N/2UetOBsvRyj2QNpZJb1qp5RQxvejJIthhW\",\"age\":25,\"role\":\"user\",\"bio\":\"Updated bio\",\"invalid_field\":\"invalid_value\"}",
-          "json": {
-            "id": 164,
-            "username": "testuser_f4e73324",
-            "email": "",
-            "password_hash": "$2b$12$BApki4MDgHS8E0in2N/2UetOBsvRyj2QNpZJb1qp5RQxvejJIthhW",
-            "age": 25,
-            "role": "user",
-            "bio": "Updated bio",
-            "invalid_field": "invalid_value"
-          }
-        }
-      },
-      "reproduction": "Send request to /users/me with malformed JSON or incorrect fields.",
-      "expected": "400 or 422",
-      "actual": "200"
-    },
-    {
-      "id": "BUG-36689e",
-      "category": "input_validation",
-      "severity": "high",
-      "endpoint": "/posts/{post_id}",
-      "method": "PATCH",
-      "title": "Missing Input Validation",
-      "description": "Endpoint succeeded despite being sent intentionally invalid data.",
-      "evidence": {
-        "request": {
-          "method": "PATCH",
-          "url": "https://backend-agent-test.onrender.com/posts/2",
-          "headers": {},
-          "has_auth": true,
-          "body": {
-            "invalid_field": "invalid_value"
-          }
-        },
-        "response": {
-          "status_code": 200,
-          "headers": {
-            "Date": "Sat, 09 May 2026 13:05:38 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "rndr-id": "dd219fb8-9fcf-4637",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "cf-cache-status": "DYNAMIC",
-            "Content-Encoding": "gzip",
-            "CF-RAY": "9f90eab4af0bd4ed-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "body": "{\"id\":2,\"author_id\":1,\"body\":\"Test post content\",\"created_at\":\"2026-05-01T12:00:00Z\",\"like_count\":30,\"author\":\"alice\"}",
-          "json": {
-            "id": 2,
-            "author_id": 1,
-            "body": "Test post content",
-            "created_at": "2026-05-01T12:00:00Z",
-            "like_count": 30,
-            "author": "alice"
-          }
-        }
-      },
-      "reproduction": "Send request to /posts/{post_id} with malformed JSON or incorrect fields.",
-      "expected": "400 or 422",
-      "actual": "200"
-    },
-    {
-      "id": "BUG-2c4b59",
-      "category": "status_code",
-      "severity": "medium",
-      "endpoint": "/posts/{post_id}",
-      "method": "DELETE",
-      "title": "Unexpected status code",
-      "description": "Request returned 403 but expected one of (200, 201, 204).",
-      "evidence": {
-        "request": {
-          "method": "DELETE",
-          "url": "https://backend-agent-test.onrender.com/posts/2",
-          "headers": {},
-          "has_auth": true
-        },
-        "response": {
-          "status_code": 403,
-          "headers": {
-            "Date": "Sat, 09 May 2026 13:05:38 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "2cedea2d-0092-4754",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f90eab56c9c33a4-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "body": "{\"detail\":\"not your post\"}",
-          "json": {
-            "detail": "not your post"
-          }
-        }
-      },
-      "reproduction": "Send DELETE request to /posts/{post_id} with valid data.",
-      "expected": "200 or 201 or 204",
-      "actual": "403"
-    },
-    {
-      "id": "BUG-30ec6e",
-      "category": "input_validation",
-      "severity": "high",
-      "endpoint": "/posts/{post_id}/like",
-      "method": "POST",
-      "title": "Missing Input Validation",
-      "description": "Endpoint succeeded despite being sent intentionally invalid data.",
-      "evidence": {
-        "request": {
-          "method": "POST",
-          "url": "https://backend-agent-test.onrender.com/posts/2/like",
-          "headers": {},
-          "has_auth": true,
-          "body": {
-            "invalid_field": "invalid_value"
-          }
-        },
-        "response": {
-          "status_code": 200,
-          "headers": {
-            "Date": "Sat, 09 May 2026 13:05:39 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "04f02496-d7ef-4ff6",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f90eabd9b3bd9eb-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "body": "{\"detail\":\"liked\",\"like_count\":32}",
-          "json": {
-            "detail": "liked",
-            "like_count": 32
-          }
-        }
-      },
-      "reproduction": "Send request to /posts/{post_id}/like with malformed JSON or incorrect fields.",
-      "expected": "400 or 422",
-      "actual": "200"
-    },
-    {
-      "id": "BUG-008293",
-      "category": "input_validation",
-      "severity": "high",
-      "endpoint": "/users/{user_id}/follow",
-      "method": "POST",
-      "title": "Missing Input Validation",
-      "description": "Endpoint succeeded despite being sent intentionally invalid data.",
-      "evidence": {
-        "request": {
-          "method": "POST",
-          "url": "https://backend-agent-test.onrender.com/users/164/follow",
-          "headers": {},
-          "has_auth": true,
-          "body": {
-            "invalid_field": "invalid_value"
-          }
-        },
-        "response": {
-          "status_code": 200,
-          "headers": {
-            "Date": "Sat, 09 May 2026 13:05:40 GMT",
-            "Content-Type": "application/json",
-            "Transfer-Encoding": "chunked",
-            "Connection": "keep-alive",
-            "access-control-allow-credentials": "true",
-            "access-control-allow-headers": "*",
-            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
-            "access-control-allow-origin": "*",
-            "cf-cache-status": "DYNAMIC",
-            "rndr-id": "aa1122cc-1865-4216",
-            "Server": "cloudflare",
-            "vary": "Accept-Encoding",
-            "x-render-origin-server": "uvicorn",
-            "CF-RAY": "9f90eac1efc5d4ed-DAC",
-            "alt-svc": "h3=\":443\"; ma=86400"
-          },
-          "body": "{\"detail\":\"followed\"}",
-          "json": {
-            "detail": "followed"
-          }
-        }
-      },
-      "reproduction": "Send request to /users/{user_id}/follow with malformed JSON or incorrect fields.",
-      "expected": "400 or 422",
-      "actual": "200"
+      "reproduction": "Send POST to /auth/login",
+      "expected": "429 or a clear throttling response",
+      "actual": "401, 401, 401, 401, 401, 401, 401, 401, 401, 401, 401, 401",
+      "confidence": "high"
     }
   ]
 }
