@@ -1,104 +1,82 @@
-# Backend Testing Agent — Exam
+# BackTest-Agent 
 
-## Your Task
+An autonomous AI-driven security auditing agent for REST APIs. It probes for vulnerabilities, business logic flaws, and schema deviations using LangGraph and LLM-powered payload generation.
 
-Build an **agent** that performs **black-box testing** of the live REST API at the
-URL provided to you, and produces a single `report.json` file describing the bugs
-your agent finds.
+## 🏗 System Architecture
 
-You have **3 days** from the time you receive this bundle.
+The agent operates as a stateful workflow (DAG) managed by **LangGraph**. Each node represents a distinct phase of the security audit.
 
-## What You Receive
+```mermaid
+graph TD
+    Start((Start)) --> LoadSpec[fa:fa-file-code Load OpenAPI Spec]
+    LoadSpec --> SetupUsers[fa:fa-users Setup Test Accounts]
+    
+    subgraph Initialization
+        SetupUsers --> RegisterA[Register User A - Owner]
+        SetupUsers --> RegisterB[Register User B - Attacker]
+        RegisterA --> CreateResources[fa:fa-plus-circle Create Resources]
+        RegisterB --> CreateResources
+    end
 
-| File | Purpose |
-|---|---|
-| `README.md` | This file |
-| `openapi.json` | The OpenAPI 3 spec for the API under test |
-| `report.schema.json` | JSON Schema your `report.json` must validate against |
+    subgraph SecurityProbing
+        CreateResources --> RunTests[fa:fa-bug Run Security Tests]
+        RunTests --> AuthTests[Auth & IDOR Checks]
+        RunTests --> LogicTests[Business Logic Flaws]
+        RunTests --> SchemaTests[Schema Validation]
+        RunTests --> RateLimitTests[Rate Limiting Checks]
+    end
 
-**Base URL:** `https://backend-agent-test.onrender.com`
+    SecurityProbing --> Analyze[fa:fa-search Analyze & Deduplicate]
+    Analyze --> GenerateReport[fa:fa-file-alt Generate report.json]
+    GenerateReport --> End((End))
 
-## Test accounts
-
-- `alice` / `alice123`
-- `bob` / `bob123`
-- `carol` / `carol123`
-
-Login: `POST /auth/login` with `{"username": "...", "password": "..."}` → returns `{"access_token": "..."}`. Use as `Authorization: Bearer <token>`.
-
-## What You Must Build
-
-An autonomous agent (in any language / framework you like) that:
-
-1. Takes as input: a base URL, an OpenAPI spec, and credentials
-2. Probes the API to discover bugs
-3. Emits a `report.json` file matching `report.schema.json`
-
-Your agent should be **reproducible** — running it again should produce the same
-findings (allowing for response-time variance).
-
-## Bug Categories You Should Consider
-
-Your agent should look for issues in any of the following 14 categories. Not all
-categories necessarily contain bugs. Each finding in your report MUST use one of
-these category strings:
-
-| Category | What to look for |
-|---|---|
-| `status_code` | Wrong HTTP status code returned |
-| `schema_contract` | Response shape/types don't match the OpenAPI spec |
-| `endpoint_existence` | Documented endpoint missing, or undocumented endpoint exists |
-| `input_validation` | Bad input (wrong type, out of range, missing required) not properly rejected |
-| `authentication` | Auth not enforced where it should be, or broken |
-| `authorization` | IDOR, privilege escalation, mass assignment |
-| `error_handling` | Stack traces leaked, inconsistent error formats, internal errors exposed |
-| `headers_cors` | Missing security headers, CORS misconfiguration, info disclosure headers |
-| `rate_limiting` | No rate limit, or weak/bypassable rate limit on sensitive endpoints |
-| `business_logic` | Invalid state transitions, logic flaws (e.g., follow-yourself, double-spend) |
-| `consistency` | Same field named differently across endpoints, response shape varies |
-| `performance` | Slow responses, no caching, oversize payloads |
-| `documentation_drift` | Spec says X, API does Y |
-| `http_protocol` | OPTIONS/HEAD/Accept-header issues |
-
-## Deliverable
-
-A single file:
-
-```
-report.json
+    style Initialization fill:#f9f,stroke:#333,stroke-width:2px
+    style SecurityProbing fill:#bbf,stroke:#333,stroke-width:2px
+    style GenerateReport fill:#bfb,stroke:#333,stroke-width:2px
 ```
 
-It must:
+## 🛠 How it Works
 
-- Validate against `report.schema.json`
-- Be UTF-8 JSON
-- Contain at least 1 finding (if your agent finds none, you're not testing hard enough)
+1.  **Specification Analysis**: The agent parses the `openapi.json` to understand the API surface, required headers, and data schemas.
+2.  **Environment Setup**: It dynamically registers two unique users. This allows for **Cross-User Authorization (IDOR)** testing (e.g., can User B delete User A's post?).
+3.  **Resource Seeding**: To perform deep testing, the agent creates real resources (posts, comments) under User A's account to provide valid IDs for attack simulations.
+4.  **Autonomous Testing**:
+    *   **Fuzzing**: Uses LLMs (OpenAI/Groq) to generate edge-case payloads.
+    *   **Authorization**: Tests every endpoint with missing tokens, expired tokens, and cross-user tokens.
+    *   **Logic Checks**: Attempts "forbidden" actions like following yourself or double-liking.
+5.  **Deduplication**: Filters out redundant errors and categorizes findings based on the required 14 security categories.
 
-You must also include:
+---
 
-- The source code of your agent (required)
+## Docker Setup
 
-You may optionally include:
+The agent is fully containerized for reproducible execution.
 
-- `agent_log.txt` — a plain-text log of the requests your agent made
+### 1. Configure Environment
+Create a `.env` file in the root directory:
+```env
+BASE_URL=https://backend-agent-test.onrender.com
+USERNAME=alice
+PASSWORD=alice123
+OPENAI_API_KEY=your_key_here
+GROQ_API_KEY=your_key_here
+```
 
-## Submission
+### 2. Run with Docker Compose
+```bash
+sudo docker compose up --build
+```
 
-Push **both** `report.json` **and your agent's source code** to a **private** GitHub repo and add the following collaborators:
+### 3. View Results
+The final audit report is saved to:
+`results/report.json`
 
-- `dibbo@sharif.com`
-- `farzana@sharif.com`
+---
 
-Then share the repo link. Submission is due **3 days after the bundle is delivered**.
+##  Project Structure
 
-## Notes
-
-- The API resets its state on each deploy. If you need a clean slate, just keep testing — your run is your responsibility.
-- `DELETE` operations and `PATCH` operations CAN modify state on the live target. Use the seeded test accounts.
-- Be polite — don't run sustained 1000-rps load tests; you can demonstrate rate-limit issues with a brief burst.
-
-## Shared infrastructure
-
-The API is shared across multiple examinees. Use unique usernames (UUID suffix) when registering, and discover state via GET requests rather than hardcoding IDs.
-
-Good luck.
+*   `agent/`: Core logic (Graph, Clients, Analyzers).
+*   `report/`: Report generation logic.
+*   `results/`: Output directory for Docker-generated reports.
+*   `main.py`: Entry point for the application.
+*   `Dockerfile` & `docker-compose.yml`: Containerization configuration.
