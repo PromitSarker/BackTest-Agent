@@ -1,0 +1,9 @@
+services:
+  agent:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./report:/app/report
+      - ./report.json:/app/report.json
+    restart: no
