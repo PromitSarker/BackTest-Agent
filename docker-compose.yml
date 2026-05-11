@@ -1,0 +1,8 @@
+services:
+  agent:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./results:/app/results
+    restart: no
