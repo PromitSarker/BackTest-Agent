@@ -127,7 +127,7 @@ def generate_report_node(state: AgentState):
         endpoints=state.get("endpoints", []),
         tested_endpoints_list=state.get("tested_endpoints", []),
         duration_seconds=round(elapsed, 2),
-        output_file="report.json",
+        output_file="results/report.json",
     )
     return {"report": report}
 

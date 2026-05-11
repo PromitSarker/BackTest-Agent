@@ -4,6 +4,5 @@ services:
     env_file:
       - .env
     volumes:
-      - ./report:/app/report
-      - ./report.json:/app/report.json
+      - ./results:/app/results
     restart: no

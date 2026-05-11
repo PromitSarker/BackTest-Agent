@@ -8,4 +8,5 @@ __pycache__
 .DS_Store
 .env
 report.json
+results/
 report/

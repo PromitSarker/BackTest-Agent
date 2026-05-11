@@ -1,0 +1,513 @@
+{
+  "target": {
+    "base_url": "https://backend-agent-test.onrender.com",
+    "tested_at": "2026-05-11T11:11:01.053409Z",
+    "spec_version": "1.0.0",
+    "agent_name": "QA-Agent",
+    "duration_seconds": 8.22
+  },
+  "summary": {
+    "total": 12,
+    "by_severity": {
+      "critical": 2,
+      "high": 0,
+      "medium": 5,
+      "low": 5
+    },
+    "by_category": {
+      "authorization": 2,
+      "business_logic": 3,
+      "error_handling": 5,
+      "headers_cors": 1,
+      "rate_limiting": 1
+    },
+    "endpoints_tested": 18,
+    "endpoints_total": 18,
+    "coverage_percent": 100.0
+  },
+  "findings": [
+    {
+      "id": "BUG-fc6c4e",
+      "category": "authorization",
+      "severity": "critical",
+      "endpoint": "/users/me",
+      "method": "PATCH",
+      "title": "Mass assignment allows role escalation",
+      "description": "The API allowed updating the 'role' field to 'admin' via a standard user profile update.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/users/me",
+          "payload": {
+            "role": "admin",
+            "email": "attacker@example.com"
+          }
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "id": 636,
+            "username": "agent_fd85a59423",
+            "email": "attacker@example.com",
+            "password_hash": "$2b$12$H6BAsE2RrnusQPHxpyez4O2sUyCmzWJsTM28NP9RCuiap7lwJI8Ce",
+            "age": null,
+            "role": "admin",
+            "bio": ""
+          },
+          "text": "{\"id\":636,\"username\":\"agent_fd85a59423\",\"email\":\"attacker@example.com\",\"password_hash\":\"$2b$12$H6BAsE2RrnusQPHxpyez4O2sUyCmzWJsTM28NP9RCuiap7lwJI8Ce\",\"age\":null,\"role\":\"admin\",\"bio\":\"\"}",
+          "headers": {
+            "Date": "Mon, 11 May 2026 11:10:54 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "03372cfd-87d5-49e2",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "Content-Encoding": "gzip",
+            "CF-RAY": "9fa0bd68deeea6d0-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1589
+        }
+      },
+      "reproduction": "Send PATCH to /users/me",
+      "expected": "Role changes should be ignored or rejected for normal users.",
+      "actual": "role=admin accepted",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-8609d1",
+      "category": "authorization",
+      "severity": "critical",
+      "endpoint": "/posts/{post_id}",
+      "method": "PATCH",
+      "title": "Cross-user resource modification allowed",
+      "description": "User B successfully modified User A's post.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/posts/535",
+          "attacker": "User B"
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "id": 535,
+            "author_id": 636,
+            "body": "IDOR_8f87",
+            "created_at": "2026-05-06T12:00:00Z",
+            "like_count": 0,
+            "author": "agent_fd85a59423"
+          },
+          "text": "{\"id\":535,\"author_id\":636,\"body\":\"IDOR_8f87\",\"created_at\":\"2026-05-06T12:00:00Z\",\"like_count\":0,\"author\":\"agent_fd85a59423\"}",
+          "headers": {
+            "Date": "Mon, 11 May 2026 11:10:55 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "775212d9-e44f-48b9",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "Content-Encoding": "gzip",
+            "CF-RAY": "9fa0bd69cf3e5aca-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1502
+        }
+      },
+      "reproduction": "Send PATCH to /posts/{post_id}",
+      "expected": "403 or 404",
+      "actual": "200",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-6876ac",
+      "category": "business_logic",
+      "severity": "medium",
+      "endpoint": "/posts/{post_id}/like",
+      "method": "POST",
+      "title": "Duplicate like request succeeds",
+      "description": "Liking a post twice succeeded. like_count=2 proves non-idempotent mutable engagement behavior.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/posts/535/like"
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "detail": "liked",
+            "like_count": 2
+          },
+          "text": "{\"detail\":\"liked\",\"like_count\":2}",
+          "headers": {
+            "Date": "Mon, 11 May 2026 11:10:55 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "a5e7cdb4-618f-4c0a",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9fa0bd6b7b52d4ed-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1431
+        }
+      },
+      "reproduction": "Send POST to /posts/{post_id}/like",
+      "expected": "409 Conflict or idempotent 200 without count increment",
+      "actual": "200, like_count=2",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-d906f6",
+      "category": "business_logic",
+      "severity": "medium",
+      "endpoint": "/posts/{post_id}/like",
+      "method": "DELETE",
+      "title": "Duplicate unlike request succeeds",
+      "description": "Unliking a post twice succeeded. like_count=1 proves non-idempotent mutable engagement behavior.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/posts/535/like"
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "detail": "unliked",
+            "like_count": 1
+          },
+          "text": "{\"detail\":\"unliked\",\"like_count\":1}",
+          "headers": {
+            "Date": "Mon, 11 May 2026 11:10:55 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "a9c61215-b90f-4e93",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9fa0bd6d1a9a8cdb-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1395
+        }
+      },
+      "reproduction": "Send DELETE to /posts/{post_id}/like",
+      "expected": "409 Conflict or idempotent 200 without count decrement",
+      "actual": "200, like_count=1",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-00d0b5",
+      "category": "business_logic",
+      "severity": "medium",
+      "endpoint": "/users/{user_id}/follow",
+      "method": "POST",
+      "title": "User can follow themselves",
+      "description": "User successfully followed themselves.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/users/636/follow"
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "detail": "followed"
+          },
+          "text": "{\"detail\":\"followed\"}",
+          "headers": {
+            "Date": "Mon, 11 May 2026 11:10:55 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "632a56f5-fd06-4abf",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9fa0bd6e183fb6db-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1589
+        }
+      },
+      "reproduction": "Send POST to /users/{user_id}/follow",
+      "expected": "400 Bad Request",
+      "actual": "200",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-27c434",
+      "category": "error_handling",
+      "severity": "low",
+      "endpoint": "/auth/register",
+      "method": "POST",
+      "title": "Server Error (Auth middleware crash)",
+      "description": "Auth middleware crash",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/auth/register"
+        },
+        "response": {
+          "status_code": 500,
+          "json": null,
+          "text": "Internal Server Error",
+          "headers": {
+            "Date": "Mon, 11 May 2026 11:10:56 GMT",
+            "Content-Type": "text/plain; charset=utf-8",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "c0a0ae6b-5a8e-4d3d",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9fa0bd715f05d4ed-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1473
+        }
+      },
+      "reproduction": "Send POST to /auth/register",
+      "expected": "4xx",
+      "actual": "500",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-e4203c",
+      "category": "error_handling",
+      "severity": "low",
+      "endpoint": "/auth/login",
+      "method": "POST",
+      "title": "Server Error (Auth middleware crash)",
+      "description": "Auth middleware crash",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/auth/login"
+        },
+        "response": {
+          "status_code": 500,
+          "json": null,
+          "text": "Internal Server Error",
+          "headers": {
+            "Date": "Mon, 11 May 2026 11:10:56 GMT",
+            "Content-Type": "text/plain; charset=utf-8",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "99f801d2-22b4-48ac",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9fa0bd722e3b6dbe-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1399
+        }
+      },
+      "reproduction": "Send POST to /auth/login",
+      "expected": "4xx",
+      "actual": "500",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-483d45",
+      "category": "error_handling",
+      "severity": "low",
+      "endpoint": "/users/me",
+      "method": "PATCH",
+      "title": "Server Error (Unclassified server error)",
+      "description": "Unclassified server error",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/users/me"
+        },
+        "response": {
+          "status_code": 500,
+          "json": null,
+          "text": "Internal Server Error",
+          "headers": {
+            "Date": "Mon, 11 May 2026 11:10:56 GMT",
+            "Content-Type": "text/plain; charset=utf-8",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "b9f6b273-470f-400c",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9fa0bd74bbd48cdb-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1512
+        }
+      },
+      "reproduction": "Send PATCH to /users/me",
+      "expected": "4xx",
+      "actual": "500",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-27dd3c",
+      "category": "error_handling",
+      "severity": "low",
+      "endpoint": "/posts",
+      "method": "POST",
+      "title": "Server Error (Unclassified server error)",
+      "description": "Unclassified server error",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/posts"
+        },
+        "response": {
+          "status_code": 500,
+          "json": null,
+          "text": "Internal Server Error",
+          "headers": {
+            "Date": "Mon, 11 May 2026 11:10:57 GMT",
+            "Content-Type": "text/plain; charset=utf-8",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "02f1f3d7-1c18-4896",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9fa0bd774addd4ed-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1327
+        }
+      },
+      "reproduction": "Send POST to /posts",
+      "expected": "4xx",
+      "actual": "500",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-4cb0f7",
+      "category": "error_handling",
+      "severity": "low",
+      "endpoint": "/posts/{post_id}",
+      "method": "PATCH",
+      "title": "Server Error (Unclassified server error)",
+      "description": "Unclassified server error",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/posts/535"
+        },
+        "response": {
+          "status_code": 500,
+          "json": null,
+          "text": "Internal Server Error",
+          "headers": {
+            "Date": "Mon, 11 May 2026 11:10:57 GMT",
+            "Content-Type": "text/plain; charset=utf-8",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "21cfebea-47d3-45ba",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9fa0bd792b795aca-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1435
+        }
+      },
+      "reproduction": "Send PATCH to /posts/{post_id}",
+      "expected": "4xx",
+      "actual": "500",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-9ec89b",
+      "category": "headers_cors",
+      "severity": "medium",
+      "endpoint": "/",
+      "method": "GET",
+      "title": "Wildcard CORS origin allows credentials",
+      "description": "Wildcard CORS allows credentials.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/"
+        },
+        "response": {
+          "status_code": 200,
+          "json": {
+            "name": "Mini Social API",
+            "version": "1.0.0"
+          },
+          "text": "{\"name\":\"Mini Social API\",\"version\":\"1.0.0\"}",
+          "headers": {
+            "Date": "Mon, 11 May 2026 11:10:58 GMT",
+            "Content-Type": "application/json",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "access-control-allow-credentials": "true",
+            "access-control-allow-headers": "*",
+            "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "access-control-allow-origin": "*",
+            "cf-cache-status": "DYNAMIC",
+            "rndr-id": "8d62ac95-97e1-4894",
+            "Server": "cloudflare",
+            "vary": "Accept-Encoding",
+            "x-render-origin-server": "uvicorn",
+            "CF-RAY": "9fa0bd802bc933a4-DAC",
+            "alt-svc": "h3=\":443\"; ma=86400"
+          },
+          "latency": 0.1618
+        }
+      },
+      "reproduction": "Send GET to /",
+      "expected": "Restricted origin or credentials=false",
+      "actual": "origin=*, credentials=true",
+      "confidence": "high"
+    },
+    {
+      "id": "BUG-be18c6",
+      "category": "rate_limiting",
+      "severity": "medium",
+      "endpoint": "/auth/login",
+      "method": "POST",
+      "title": "No observable rate limit on repeated failed login attempts",
+      "description": "Sent 12 failed login attempts without being throttled.",
+      "evidence": {
+        "request": {
+          "url": "https://backend-agent-test.onrender.com/auth/login"
+        },
+        "response": {}
+      },
+      "reproduction": "Send POST to /auth/login",
+      "expected": "429 or a clear throttling response",
+      "actual": "401, 401, 401, 401, 401, 401, 401, 401, 401, 401, 401, 401",
+      "confidence": "high"
+    }
+  ]
+}

@@ -39,10 +39,11 @@ def main():
     report = final_state.get("report")
 
     if report:
-        with open("report.json", "w", encoding="utf-8") as f:
+        os.makedirs("results", exist_ok=True)
+        with open("results/report.json", "w", encoding="utf-8") as f:
             import json
             json.dump(report, f, indent=2)
-        logger.info("Workflow completed. Report saved to report.json")
+        logger.info("Workflow completed. Report saved to results/report.json")
     else:
         logger.warning("Workflow completed, but no report generated.")
 
